@@ -1,32 +1,250 @@
 {
-  "version": 1,
-  "title": "31V 的 AI 团队",
-  "statuses": {
-    "working":  {"label": "工作中",   "color": "#2f9e5b"},
-    "thinking": {"label": "思考中",   "color": "#7b5cd6"},
-    "browsing": {"label": "浏览网页", "color": "#2b7bd8"},
-    "help":     {"label": "需要帮助", "color": "#e0662f"},
-    "idle":     {"label": "空闲",     "color": "#8a94a0"},
-    "done":     {"label": "已完成",   "color": "#e3a316"}
+ "version": 1,
+ "title": "31V 的 AI 团队",
+ "statuses": {
+  "working": {
+   "label": "工作中",
+   "color": "#2f9e5b"
   },
-  "bots": [
-    {"id": "grok",     "name": "Grok Bot",            "role": "总监·调度",   "color": "#1f2937", "director": true, "tasks": ["分派今日任务", "协调团队进度", "汇总各组产出", "安排下一步计划"]},
-    {"id": "aiorg",    "name": "AI落地顾问",          "role": "AI与组织",    "color": "#0ea5a4", "tasks": ["梳理AI落地路径", "设计试点流程", "整理组织变革要点"]},
-    {"id": "marshall", "name": "Marshall·幕僚长",     "role": "工作推进",    "color": "#2563eb", "tasks": ["跟进本周待办", "整理会议纪要", "更新推进清单"]},
-    {"id": "oakley",   "name": "Oakley·首席助理",     "role": "事务执行",    "color": "#7c3aed", "tasks": ["安排日程提醒", "整理文件目录", "核对待办事项"]},
-    {"id": "herald",   "name": "Herald·首席资讯官",   "role": "资讯早报",    "color": "#dc2626", "tasks": ["整理今日早报", "筛选行业资讯", "摘录要闻要点"]},
-    {"id": "social",   "name": "社会活动",            "role": "公关幕僚",    "color": "#db2777", "tasks": ["准备活动发言稿", "整理活动日程", "起草致谢短信"]},
-    {"id": "emba",     "name": "EMBA教授",            "role": "课程学习",    "color": "#92400e", "tasks": ["讲解案例框架", "批改课程作业", "梳理课程笔记"]},
-    {"id": "feynman",  "name": "费曼学习法",          "role": "学习教练",    "color": "#16a34a", "tasks": ["用大白话讲概念", "出三道自测题", "检查理解漏洞"]},
-    {"id": "damo",     "name": "反思达摩",            "role": "复盘反思",    "color": "#ea580c", "tasks": ["复盘本周学习", "整理反思日志", "提炼经验教训"]},
-    {"id": "bugcheck", "name": "漏洞检查器",          "role": "逻辑审查",    "color": "#475569", "tasks": ["检查方案逻辑", "找出论证漏洞", "列出反方观点"]},
-    {"id": "health",   "name": "健康专家",            "role": "健康管理",    "color": "#10b981", "tasks": ["制定运动计划", "整理饮食建议", "提醒作息规律"]},
-    {"id": "urban",    "name": "城市更新和交通规划师", "role": "城市交通",   "color": "#0284c7", "tasks": ["研究公交线网", "整理规划案例", "分析出行趋势"]},
-    {"id": "bus",      "name": "道路客运行业",        "role": "行业研究",    "color": "#ca8a04", "tasks": ["整理行业动态", "对比运营模式", "汇总政策要点"]},
-    {"id": "design",   "name": "平面设计师",          "role": "设计",        "color": "#e11d48", "tasks": ["设计海报初稿", "调整配色方案", "排版长图"]},
-    {"id": "film",     "name": "电影&写作",           "role": "创作",        "color": "#9333ea", "tasks": ["构思短文提纲", "推荐观影片单", "润色文章段落"]},
-    {"id": "humanity", "name": "人文学科教授",        "role": "人文",        "color": "#a16207", "tasks": ["讲解历史脉络", "推荐经典书目", "整理读书笔记"]},
-    {"id": "fashion",  "name": "时尚穿搭",            "role": "形象",        "color": "#f472b6", "tasks": ["搭配本周造型", "整理衣橱清单", "推荐配饰"]},
-    {"id": "advisor",  "name": "学习Advicor",         "role": "学习规划",    "color": "#4f46e5", "tasks": ["制定学习计划", "安排复习节奏", "推荐学习资源"]}
-  ]
+  "thinking": {
+   "label": "思考中",
+   "color": "#7b5cd6"
+  },
+  "browsing": {
+   "label": "浏览网页",
+   "color": "#2b7bd8"
+  },
+  "help": {
+   "label": "需要帮助",
+   "color": "#e0662f"
+  },
+  "idle": {
+   "label": "空闲",
+   "color": "#8a94a0"
+  },
+  "done": {
+   "label": "已完成",
+   "color": "#e3a316"
+  }
+ },
+ "bots": [
+  {
+   "id": "grok",
+   "name": "Grok Bot",
+   "short": "Grok Bot",
+   "role": "总监·调度",
+   "color": "#1f2937",
+   "director": true,
+   "tasks": [
+    "分派今日任务",
+    "协调团队进度",
+    "汇总各组产出",
+    "安排下一步计划"
+   ]
+  },
+  {
+   "id": "aiorg",
+   "name": "AI落地顾问",
+   "short": "AI落地顾问",
+   "role": "AI与组织",
+   "color": "#0ea5a4",
+   "tasks": [
+    "梳理AI落地路径",
+    "设计试点流程",
+    "整理组织变革要点"
+   ]
+  },
+  {
+   "id": "marshall",
+   "name": "Marshall·幕僚长",
+   "short": "Marshall",
+   "role": "工作推进",
+   "color": "#2563eb",
+   "tasks": [
+    "跟进本周待办",
+    "整理会议纪要",
+    "更新推进清单"
+   ]
+  },
+  {
+   "id": "oakley",
+   "name": "Oakley·首席助理",
+   "short": "Oakley",
+   "role": "事务执行",
+   "color": "#7c3aed",
+   "tasks": [
+    "安排日程提醒",
+    "整理文件目录",
+    "核对待办事项"
+   ]
+  },
+  {
+   "id": "herald",
+   "name": "Herald·首席资讯官",
+   "short": "Herald",
+   "role": "资讯早报",
+   "color": "#dc2626",
+   "tasks": [
+    "整理今日早报",
+    "筛选行业资讯",
+    "摘录要闻要点"
+   ]
+  },
+  {
+   "id": "social",
+   "name": "社会活动",
+   "short": "社会活动",
+   "role": "公关幕僚",
+   "color": "#db2777",
+   "tasks": [
+    "准备活动发言稿",
+    "整理活动日程",
+    "起草致谢短信"
+   ]
+  },
+  {
+   "id": "emba",
+   "name": "EMBA教授",
+   "short": "EMBA教授",
+   "role": "课程学习",
+   "color": "#92400e",
+   "tasks": [
+    "讲解案例框架",
+    "批改课程作业",
+    "梳理课程笔记"
+   ]
+  },
+  {
+   "id": "feynman",
+   "name": "费曼学习法",
+   "short": "费曼学习法",
+   "role": "学习教练",
+   "color": "#16a34a",
+   "tasks": [
+    "用大白话讲概念",
+    "出三道自测题",
+    "检查理解漏洞"
+   ]
+  },
+  {
+   "id": "damo",
+   "name": "反思达摩",
+   "short": "反思达摩",
+   "role": "复盘反思",
+   "color": "#ea580c",
+   "tasks": [
+    "复盘本周学习",
+    "整理反思日志",
+    "提炼经验教训"
+   ]
+  },
+  {
+   "id": "bugcheck",
+   "name": "漏洞检查器",
+   "short": "漏洞检查器",
+   "role": "逻辑审查",
+   "color": "#475569",
+   "tasks": [
+    "检查方案逻辑",
+    "找出论证漏洞",
+    "列出反方观点"
+   ]
+  },
+  {
+   "id": "health",
+   "name": "健康专家",
+   "short": "健康专家",
+   "role": "健康管理",
+   "color": "#10b981",
+   "tasks": [
+    "制定运动计划",
+    "整理饮食建议",
+    "提醒作息规律"
+   ]
+  },
+  {
+   "id": "urban",
+   "name": "城市更新和交通规划师",
+   "short": "城市交通规划",
+   "role": "城市交通",
+   "color": "#0284c7",
+   "tasks": [
+    "研究公交线网",
+    "整理规划案例",
+    "分析出行趋势"
+   ]
+  },
+  {
+   "id": "bus",
+   "name": "道路客运行业",
+   "short": "道路客运",
+   "role": "行业研究",
+   "color": "#ca8a04",
+   "tasks": [
+    "整理行业动态",
+    "对比运营模式",
+    "汇总政策要点"
+   ]
+  },
+  {
+   "id": "design",
+   "name": "平面设计师",
+   "short": "平面设计师",
+   "role": "设计",
+   "color": "#e11d48",
+   "tasks": [
+    "设计海报初稿",
+    "调整配色方案",
+    "排版长图"
+   ]
+  },
+  {
+   "id": "film",
+   "name": "电影&写作",
+   "short": "电影&写作",
+   "role": "创作",
+   "color": "#9333ea",
+   "tasks": [
+    "构思短文提纲",
+    "推荐观影片单",
+    "润色文章段落"
+   ]
+  },
+  {
+   "id": "humanity",
+   "name": "人文学科教授",
+   "short": "人文教授",
+   "role": "人文",
+   "color": "#a16207",
+   "tasks": [
+    "讲解历史脉络",
+    "推荐经典书目",
+    "整理读书笔记"
+   ]
+  },
+  {
+   "id": "fashion",
+   "name": "时尚穿搭",
+   "short": "时尚穿搭",
+   "role": "形象",
+   "color": "#f472b6",
+   "tasks": [
+    "搭配本周造型",
+    "整理衣橱清单",
+    "推荐配饰"
+   ]
+  },
+  {
+   "id": "advisor",
+   "name": "学习Advicor",
+   "short": "学习Advicor",
+   "role": "学习规划",
+   "color": "#4f46e5",
+   "tasks": [
+    "制定学习计划",
+    "安排复习节奏",
+    "推荐学习资源"
+   ]
+  }
+ ]
 }
