@@ -13,3 +13,13 @@
 - 开放工位区与总监室：满铺宝蓝地毯；去掉工位上方胡桃木格栅吊顶、全部柱子、禅意庭院（改为阅读角）。
 - 总监室背墙：律所合伙人式落地胡桃木书墙（InstancedMesh 书本 + 地球仪、花瓶、相框、雕塑、黄铜台灯、层板暖光）。
 - Bot 标签：屏幕空间防重叠布局（逐帧计算，近处优先，冲突时上移/侧移并画引导线），默认只显示简称+状态点，放大或选中时显示状态与角色。bots.json 新增 short 字段。
+
+## v4 · 中央公园景观窗
+- 开放工位区背后的两段外墙（后墙 x∈[-11,11]，左墙 z∈[-4.2,2.2]）改为落地玻璃幕墙：青铜色细竖梃、胡桃木窗台、半透明微反光玻璃。
+- 窗外为纽约中央公园高空实景照片（同一张图在两面墙上取不同裁切），夜间整体压暗偏蓝，并在照片中楼宇位置自动撒上暖色窗灯（避开公园绿地与天空）。
+
+### 图片来源与许可
+- 文件：`assets/centralpark.jpg`（由原图裁去上部天空，缩放至 1600×471，JPEG 约 110 KB，轻微提高饱和度）
+- 原图：“Central Park from the Top of the Rock 2”，作者 Tony Hisgett（Birmingham, UK），摄于 2010-06-01
+- 来源：https://commons.wikimedia.org/wiki/File:Central_Park_from_the_Top_of_the_Rock_2_(4693129360).jpg （原始 Flickr：https://www.flickr.com/photos/hisgett/4693129360/）
+- 许可：CC BY 2.0 — https://creativecommons.org/licenses/by/2.0/ （已修改：裁切、缩放、调色）。页面页脚亦有署名链接。

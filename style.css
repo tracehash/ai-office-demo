@@ -81,3 +81,7 @@ body.night #loading{background:#15100c;color:#e9cfa8}
 #legend span{display:inline-flex;align-items:center;gap:4px}
 #legend i{width:8px;height:8px;border-radius:50%;display:inline-block}
 body.night #legend{color:#d9b68a;border-color:#4a3323}
+#footer .credit{opacity:.75;font-size:11px;letter-spacing:0}
+#footer a{color:inherit}
+@media (max-width:760px){#footer .credit{display:block;font-size:10px;margin-top:1px}}
+@media (max-width:760px){#panel{bottom:52px}#card{bottom:56px}}
