@@ -8,12 +8,13 @@ const FALLBACK = {
   statuses: {
     working:{label:'工作中',color:'#2f9e5b'}, thinking:{label:'思考中',color:'#7b5cd6'},
     browsing:{label:'浏览网页',color:'#2b7bd8'}, help:{label:'需要帮助',color:'#e0662f'},
-    idle:{label:'空闲',color:'#8a94a0'}, done:{label:'已完成',color:'#e3a316'} },
+    idle:{label:'空闲',color:'#8a94a0'}, done:{label:'已完成',color:'#e3a316'},
+    meeting:{label:'群聊中',color:'#0d9488'}, focus:{label:'专注',color:'#be185d'} },
   bots: [
-    ['grok','Grok Bot','总监·调度','#1f2937',['分派今日任务','协调团队进度','汇总各组产出']],
+    ['grok','Grok Bot','调度·协调','#1f2937',['分派今日任务','协调团队进度','汇总各组产出']],
     ['aiorg','AI落地顾问','AI与组织','#0ea5a4',['梳理AI落地路径','设计试点流程']],
     ['marshall','Marshall·幕僚长','工作推进','#2563eb',['跟进本周待办','整理会议纪要']],
-    ['oakley','Oakley·首席助理','事务执行','#7c3aed',['安排日程提醒','整理文件目录']],
+    ['oakley','Oakley · 首席助理','首席助理','#7c3aed',['安排日程提醒','整理文件目录']],
     ['herald','Herald·首席资讯官','资讯早报','#dc2626',['整理今日早报','筛选行业资讯']],
     ['social','社会活动','公关幕僚','#db2777',['准备活动发言稿','整理活动日程']],
     ['emba','EMBA教授','课程学习','#92400e',['讲解案例框架','梳理课程笔记']],
@@ -28,7 +29,7 @@ const FALLBACK = {
     ['humanity','人文学科教授','人文','#a16207',['讲解历史脉络','整理读书笔记']],
     ['fashion','时尚穿搭','形象','#f472b6',['搭配本周造型','推荐配饰']],
     ['advisor','学习Advicor','学习规划','#4f46e5',['制定学习计划','安排复习节奏']],
-  ].map(([id,name,role,color,tasks],i)=>({id,name,short:name.split('·')[0],role,color,tasks,director:i===0}))
+  ].map(([id,name,role,color,tasks],i)=>({id,name,short:id==='oakley'?name:name.split('·')[0].trim(),role,color,tasks,dispatcher:i===0,seat:id==='oakley'?'directorOffice':undefined}))
 };
 async function loadData(){
   try{ const r = await fetch('bots.json',{cache:'no-store'}); if(!r.ok) throw 0; const j = await r.json(); if(!j.bots?.length) throw 0; return j; }
@@ -436,6 +437,7 @@ function drawBTC(){
   }
   btcTex.needsUpdate=true;
   if(roomEls['会议室']) roomEls['会议室'].textContent = btcState.price ? '会议室 · BTC $'+Math.round(btcState.price).toLocaleString('en-US') : (btcState.time ? '会议室 · 行情暂不可用' : '会议室');
+  roomList.forEach(r=>r.w=0);   // 文本变化后重新测量宽度
 }
 async function fetchBTC(){
   const now = new Date().toLocaleTimeString('zh-CN',{hour12:false});
@@ -467,10 +469,10 @@ function makeBot(def, seat, deskObj){
   const ant=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.3,6),M('#6b7280')); ant.position.y=2.12; g.add(ant);
   const bulbM=new THREE.MeshStandardMaterial({color:def.color,emissive:def.color,emissiveIntensity:0.8});
   const bulb=new THREE.Mesh(new THREE.SphereGeometry(0.08,8,6),bulbM); bulb.position.y=2.3; g.add(bulb);
-  if(def.director){ const crown=new THREE.Mesh(new THREE.ConeGeometry(0.22,0.25,5),M('#fbbf24',{metalness:0.4,roughness:0.4})); crown.position.set(0.18,2.0,0); crown.rotation.z=-0.4; g.add(crown); }
+  if(false){ const crown=new THREE.Mesh(new THREE.ConeGeometry(0.22,0.25,5),M('#fbbf24',{metalness:0.4,roughness:0.4})); crown.position.set(0.18,2.0,0); crown.rotation.z=-0.4; g.add(crown); }
   const hit=new THREE.Mesh(new THREE.CylinderGeometry(0.75,0.75,2.6,8),new THREE.MeshBasicMaterial({visible:false})); hit.position.y=1.2; g.add(hit);
   // 标签
-  const el=document.createElement('div'); el.className='lbl'+(def.director?' dir':'');
+  const el=document.createElement('div'); el.className='lbl'+(def.seat==='directorOffice'?' dir':'');
   el.innerHTML=`<span class="sd"></span><span class="nm">${def.short||def.name.split('·')[0]}</span><span class="st"></span><i class="rl">${def.role}</i>`;
   labelLayer.appendChild(el);
   const bot={lw:0,lh:0,dirty:true,ox:0,oy:0,def,g,body,head,bulb,hit,el,seat,desk:deskObj,status:'working',task:pick(def.tasks),pos:new THREE.Vector3(seat.x,0,seat.z),path:[],place:'desk',spot:null,next:0,phase:Math.random()*6,doneAt:0};
@@ -481,10 +483,23 @@ function makeBot(def, seat, deskObj){
   return bot;
 }
 
+// ---------- 规则默认值（bots.json 的 rules 优先） ----------
+const allFigures=()=>bots;
+let RULES=null;
+const DEFAULT_RULES={
+  directorOffice:{bot:'oakley',legend:'总监室 → 首席助理 Oakley 常驻'},
+  meetingRoom:{status:'meeting',trigger:'groupChat',minParticipants:2,capacity:8,when:'bot 正在同一个群聊中',legend:'群聊中（同一群 ≥2 位）→ 会议室'},
+  focusPod:{status:'focus',trigger:'deepWork',minSeconds:30,capacity:2,overflow:'desk',when:'连续深度工作超过 30 秒',legend:'连续深度工作 >30 秒 → 专注舱，满员留工位'},
+  lounge:{status:['idle'],legend:'空闲 → 休息区 / 图书角'},
+  desk:{status:['working','thinking','browsing','help','done'],legend:'其他状态 → 自己的工位'} };
 function def_title(b){ return `${b.def.name}（${b.def.role}）· ${STATUS[b.status].label}`; }
 function setStatus(bot,st,task){
-  bot.status=st; if(task) bot.task=task;
-  if(st==='idle') bot.task='在休息区放松一下';
+  const prev=bot.status; bot.status=st; if(task) bot.task=task;
+  if(st==='idle') bot.task=bot.office?'在总监室待命':'在休息区放松一下';
+  if(st==='working' && prev!=='working'){            // 新的一段连续工作：按概率标记为深度工作
+    bot.workSince=performance.now(); bot.deep=!bot.office && !bot.def.dispatcher && Math.random()<(DATA.demo?.deepChance??0.3);
+    if(bot.deep) bot.task='深度任务：'+pick(DATA.demo?.deepTasks||['长篇研究报告撰写']); }
+  if(st!=='working' && st!=='focus') bot.deep=false;
   const s=STATUS[st];
   const badge=bot.el.querySelector('.st'); badge.textContent=s.label; badge.style.background=s.color;
   bot.el.querySelector('.sd').style.background=s.color; bot.el.title=def_title(bot); bot.dirty=true;
@@ -492,26 +507,55 @@ function setStatus(bot,st,task){
   bot.bulb.material.emissive.set(s.color);
   if(st==='done'){ confetti(bot.g.position.clone().add(new THREE.Vector3(0,2.2,0))); bot.doneAt=performance.now(); }
   // 走动：空闲去休息区，其他状态回工位
-  if(st==='idle' && bot.place!=='lounge' && !bot.def.director) goLounge(bot);
-  else if(st!=='idle' && bot.place!=='desk' && !bot.def.director) goDesk(bot);
+  routeBot(bot);
   refreshList(bot); if(selected===bot) showCard(bot);
 }
 function seatAisle(bot){ return new THREE.Vector3(bot.seat.x,0,bot.seat.z-1.4); }
-function goLounge(bot){
-  let idx=loungeSpots.findIndex((_,i)=>!loungeTaken.has(i)); if(idx<0) return;
-  loungeTaken.add(idx); bot.spot=idx; const [sx,sz]=loungeSpots[idx];
-  const a=seatAisle(bot);
-  const lib=loungeSpots[idx][3]==='lib';
-  bot.path=[a,new THREE.Vector3(CORRIDOR_X,0,a.z),new THREE.Vector3(CORRIDOR_X,0,4.2),...(lib?[]:[new THREE.Vector3(-12,0,4.2)]),new THREE.Vector3(sx,0,sz)];
-  bot.place='walking-lounge';
+// ---------- 空间规则：状态 → 去处 ----------
+// 会议室座位（站在椅子后方，面向长桌）与专注舱
+const MEET_SEATS=[[14.75,-9.9],[14.75,-5.7],[16.25,-9.9],[16.25,-5.7],[13.2,-9.9],[13.2,-5.7],[17.8,-9.9],[17.8,-5.7]];
+const meetTaken=new Set();
+const PODS=[[5.3,9.4],[8.6,9.4]]; const podTaken=new Set();
+const EAST_X=10.6;   // 工位区与会议室/专注舱之间的走道
+const V=(x,z)=>new THREE.Vector3(x,0,z);
+function kindOf(bot){ return bot.place.replace('walking-',''); }
+function wantKind(bot){
+  const st=bot.status;
+  if(st==='idle') return 'lounge';
+  if(st==='meeting' && bot.meeting) return 'meeting';
+  if(st==='focus'){ if(bot.pod!=null) return 'pod'; return PODS.some((_,i)=>!podTaken.has(i)) ? 'pod' : 'desk'; }
+  return 'desk';
 }
-function goDesk(bot){
+function routeIn(bot,kind){            // 从工位过道出发到目的地的路径（含过道点 a）
   const a=seatAisle(bot);
-  const start=bot.place==='lounge'||bot.place==='walking-lounge';
-  const lib=bot.spot!=null && loungeSpots[bot.spot][3]==='lib';
-  if(bot.spot!=null){ loungeTaken.delete(bot.spot); bot.spot=null; }
-  bot.path= start ? [...(lib?[]:[new THREE.Vector3(-12,0,4.2)]),new THREE.Vector3(CORRIDOR_X,0,4.2),new THREE.Vector3(CORRIDOR_X,0,a.z),a,new THREE.Vector3(bot.seat.x,0,bot.seat.z)] : [new THREE.Vector3(bot.seat.x,0,bot.seat.z)];
-  bot.place='walking-desk';
+  if(kind==='desk') return [a,V(bot.seat.x,bot.seat.z)];
+  if(kind==='lounge'){ const [sx,sz,,tag]=loungeSpots[bot.spot]; return [a,V(CORRIDOR_X,a.z),V(CORRIDOR_X,4.2),...(tag==='lib'?[]:[V(-12,4.2)]),V(sx,sz)]; }
+  if(kind==='meeting'){ const [sx,sz]=MEET_SEATS[bot.mseat]; const far=sz<-8;
+    return [a,V(EAST_X,a.z),V(EAST_X,-2),V(19.2,-2),...(far?[V(19.2,-9.9),V(sx,-9.9)]:[V(19.2,-4.8),V(sx,-4.8),V(sx,sz)])]; }
+  if(kind==='pod'){ const [px,pz]=PODS[bot.pod]; return [a,V(EAST_X,a.z),V(EAST_X,12.95),V(px,12.95),V(px,pz)]; }
+  return [a];
+}
+function release(bot,kind){
+  if(kind==='lounge' && bot.spot!=null){ loungeTaken.delete(bot.spot); bot.spot=null; }
+  if(kind==='meeting' && bot.mseat!=null){ meetTaken.delete(bot.mseat); bot.mseat=null; }
+  if(kind==='pod' && bot.pod!=null){ podTaken.delete(bot.pod); bot.pod=null; }
+}
+function allocate(bot,kind){
+  if(kind==='lounge'){ const i=loungeSpots.findIndex((_,k)=>!loungeTaken.has(k)); if(i<0) return false; loungeTaken.add(i); bot.spot=i; }
+  if(kind==='meeting'){ const i=MEET_SEATS.findIndex((_,k)=>!meetTaken.has(k)); if(i<0) return false; meetTaken.add(i); bot.mseat=i; }
+  if(kind==='pod'){ const i=PODS.findIndex((_,k)=>!podTaken.has(k)); if(i<0) return false; podTaken.add(i); bot.pod=i; }
+  return true;
+}
+function routeBot(bot){
+  if(bot.office) return;                                   // 首席助理常驻总监室
+  let to=wantKind(bot); const from=kindOf(bot);
+  bot.focusAtDesk = bot.status==='focus' && to==='desk';
+  if(to===from) return;
+  const out = routeIn(bot,from).reverse().slice(1);       // 先原路回到自己工位过道
+  release(bot,from);
+  if(!allocate(bot,to)){ to='desk'; bot.focusAtDesk=bot.status==='focus'; if(from==='desk'){ return; } }
+  bot.path=[...out,...routeIn(bot,to).slice(1)];
+  bot.place='walking-'+to;
 }
 
 // ---------- 彩带与调度特效 ----------
@@ -559,31 +603,69 @@ const NEXT={ working:[['done',3],['thinking',2],['browsing',2],['help',1],['work
   thinking:[['working',4],['browsing',2],['help',1]], browsing:[['working',3],['thinking',2],['done',1]],
   help:[['working',3],['thinking',1]], done:[['idle',4],['working',2]], idle:[['idle',2],['working',1]] };
 function weighted(list){ const tot=list.reduce((s,[,w])=>s+w,0); let r=Math.random()*tot; for(const [k,w] of list){ if((r-=w)<=0) return k; } return list[0][0]; }
+const BUSY_SPECIAL=b=>b.status==='meeting'||b.status==='focus';
+function freeCrew(){ return bots.filter(b=>!b.def.dispatcher && !b.place.startsWith('walking') && !BUSY_SPECIAL(b)); }
+// 会议室规则：同一群聊中的 bot（≥2 位）一起进会议室
+const meetings=[]; let lastGroup=null;
+function startMeeting(group,topic,members){
+  const r=RULES.meetingRoom; members=members.slice(0,Math.min(r.capacity,MEET_SEATS.length-meetTaken.size));
+  if(members.length<r.minParticipants) return null;
+  const mt={group,topic,members,ends:performance.now()+rand(55,80)*1000};
+  meetings.push(mt); lastGroup=group.id;
+  for(const m of members){ m.meeting=mt; setStatus(m,'meeting',`${group.name}：${topic}`); }
+  return mt;
+}
+function endMeeting(mt){
+  meetings.splice(meetings.indexOf(mt),1);
+  for(const m of mt.members){ m.meeting=null; setStatus(m,Math.random()<0.5?'done':'working',Math.random()<0.5?'落实群聊结论：'+mt.topic:pick(m.def.tasks)); }
+}
+// 专注舱规则：连续深度工作 > minSeconds 秒 → 专注舱，满员留工位
+function startFocus(b,task){ b.focusEnds=performance.now()+rand(40,70)*1000; setStatus(b,'focus',task||b.task); }
+function deepSeconds(b){ return Math.floor((performance.now()-(b.workSince||performance.now()))/1000); }
+function specialTick(){
+  if(!demoOn) return; const now=performance.now();
+  for(const mt of [...meetings]) if(now>mt.ends && mt.members.every(m=>!m.place.startsWith('walking'))) endMeeting(mt);
+  for(const b of bots) if(b.status==='focus' && now>b.focusEnds && !b.place.startsWith('walking')) setStatus(b,'done','完成深度任务：'+b.task.replace('深度任务：',''));
+  // 深度工作计时达标 → 专注
+  for(const b of bots) if(b.status==='working' && b.deep && !b.place.startsWith('walking') && deepSeconds(b)>RULES.focusPod.minSeconds) startFocus(b);
+  if(meetings.length<1){                 // 演示：始终保持一个群聊在会议室进行
+    const free=new Set(groupPool()); const gs=(DATA.groups||[]).filter(g=>g.id!==lastGroup);
+    const cands=gs.map(g=>({g,mem:g.members.map(id=>bots.find(b=>b.def.id===id)).filter(b=>b&&free.has(b))})).filter(x=>x.mem.length>=RULES.meetingRoom.minParticipants);
+    if(cands.length){ const c=pick(cands); startMeeting(c.g,pick(DATA.demo?.chatTopics||['讨论']),c.mem.slice(0,4)); }
+  }
+  // 保证演示中一直有人在做深度工作
+  if(!bots.some(b=>b.status==='focus'||(b.status==='working'&&b.deep))){
+    const c=groupPool().filter(b=>b.status==='working'); if(c.length){ const b=pick(c); b.deep=true; b.workSince=now; b.task='深度任务：'+pick(DATA.demo?.deepTasks||['长篇研究报告撰写']); refreshList(b); }
+  }
+}
+function groupPool(){ return freeCrew().filter(b=>!b.office && b.status!=='idle'); }
 function demoTick(){
   if(!demoOn) return;
-  const crew=bots.filter(b=>!b.def.director && !b.place.startsWith('walking'));
+  const crew=freeCrew();
   const n=1+(Math.random()<0.5?1:0);
   for(let k=0;k<n;k++){ const b=pick(crew); if(!b) continue; let st=weighted(NEXT[b.status]); if(st===b.status) continue;
     if(st==='working' && (b.status==='idle'||b.status==='done')) { doDispatch(b); continue; }
     setStatus(b,st,(st==='working'||st==='thinking'||st==='browsing')?pick(b.def.tasks):null); }
 }
 function doDispatch(target){
-  const g=bots.find(b=>b.def.director); if(!g||!target) return;
+  const g=bots.find(b=>b.def.dispatcher); if(!g||!target) return;
   const task=pick(target.def.tasks);
   setStatus(g,'working','分派：'+task+' → '+target.def.name.split('·')[0]);
-  dispatch(g,target,()=>{ setStatus(target,'working',task); });
+  dispatch(g,target,()=>{ if(!BUSY_SPECIAL(target)) setStatus(target,'working',task); });
 }
 function directorTick(){
   if(!demoOn) return;
-  const candidates=bots.filter(b=>!b.def.director&&(b.status==='idle'||b.status==='done'||b.status==='help')&&!b.place.startsWith('walking'));
+  const candidates=bots.filter(b=>!b.def.dispatcher&&(b.status==='idle'||b.status==='done'||b.status==='help')&&!b.place.startsWith('walking'));
   if(candidates.length) doDispatch(pick(candidates));
-  else { const g=bots.find(b=>b.def.director); setStatus(g,pick(['thinking','browsing','working']),pick(g.def.tasks)); }
+  else { const g=bots.find(b=>b.def.dispatcher); if(g&&!BUSY_SPECIAL(g)) setStatus(g,pick(['thinking','browsing','working']),pick(g.def.tasks)); }
 }
 
 // ---------- 侧边栏与卡片 ----------
 const listEl=document.getElementById('botList'); const liMap=new Map();
 function buildList(){
   document.getElementById('legend').innerHTML=Object.values(STATUS).map(x=>`<span><i style="background:${x.color}"></i>${x.label}</span>`).join('');
+  const ruleColor=k=>{ if(k==='directorOffice') return '#3b2416'; const st=[].concat(RULES[k].status)[0]; return STATUS[st]?.color||'#8a94a0'; };
+  document.getElementById('rules').innerHTML='<b>空间规则</b>'+['directorOffice','meetingRoom','focusPod','lounge','desk'].filter(k=>RULES[k]).map(k=>`<span title="${RULES[k].when||''}"><i style="background:${ruleColor(k)}"></i>${RULES[k].legend}</span>`).join('');
   for(const b of bots){ const li=document.createElement('li');
     li.innerHTML=`<span class="dot" style="background:${b.def.color}"></span><span class="nm">${b.def.name}<small>${b.def.role}</small></span><span class="badge"></span>`;
     li.onclick=()=>{ select(b); if(isMobile) document.getElementById('panel').classList.remove('open'); }; listEl.appendChild(li); liMap.set(b,li); }
@@ -594,7 +676,16 @@ let selected=null; const card=document.getElementById('card');
 function showCard(b){ const s=STATUS[b.status];
   document.getElementById('cardDot').style.background=b.def.color; document.getElementById('cardName').textContent=b.def.name;
   document.getElementById('cardRole').textContent=b.def.role; const cs=document.getElementById('cardStatus'); cs.innerHTML=`<span class="badge" style="background:${s.color}">${s.label}</span>`;
-  document.getElementById('cardTask').textContent=b.task; card.classList.remove('hidden'); }
+  document.getElementById('cardTask').textContent=b.task;
+  const ex=[];
+  if(b.office) ex.push(['座位','总监室（首席助理常驻）']);
+  if(b.status==='meeting'&&b.meeting){ const g=b.meeting.group; ex.push(['群聊',g.name]); ex.push(['话题',b.meeting.topic]); ex.push(['在会议室',b.meeting.members.map(m=>m.def.short||m.def.name).join('、')]);
+    const all=g.members.map(id=>bots.find(x=>x.def.id===id)).filter(Boolean); ex.push(['群成员',all.map(m=>m.def.short||m.def.name).join('、')]); }
+  if(b.status==='focus'){ ex.push(['连续深度工作',deepSeconds(b)+' 秒']); ex.push(['地点', b.pod!=null ? '专注舱 '+(b.pod+1)+' 号' : (b.focusAtDesk?'工位（专注舱已满）':'前往专注舱')]); }
+  else if(b.status==='working'&&b.deep){ const sec=deepSeconds(b), th=RULES.focusPod.minSeconds; ex.push(['深度工作',`${sec} 秒（>${th} 秒进专注舱）`]); }
+  document.getElementById('cardExtra').innerHTML=ex.map(([k,v])=>`<div class="card-row"><span>${k}</span><b>${v}</b></div>`).join('');
+  card.classList.remove('hidden'); }
+setInterval(()=>{ if(selected && (selected.status==='focus'||selected.status==='meeting'||selected.deep)) showCard(selected); },1000);
 function select(b){ if(selected){ selected.el.classList.remove('sel'); selected.dirty=true; liMap.get(selected)?.classList.remove('sel'); }
   selected=b; if(!b){ card.classList.add('hidden'); return; } b.el.classList.add('sel'); b.dirty=true; liMap.get(b)?.classList.add('sel'); showCard(b); }
 document.getElementById('cardClose').onclick=()=>select(null);
@@ -629,14 +720,15 @@ function updateBots(dt,t){
   for(const b of bots){
     if(b.path.length){
       const tgt=b.path[0]; tmp.copy(tgt).sub(b.pos); tmp.y=0; const d=tmp.length(); const step=3.2*dt;
-      if(d<=step){ b.pos.copy(tgt); b.path.shift(); if(!b.path.length){ b.place=b.place==='walking-lounge'?'lounge':'desk'; } }
+      if(d<=step){ b.pos.copy(tgt); b.path.shift(); if(!b.path.length){ b.place=b.place.replace('walking-',''); } }
       else { tmp.normalize(); b.pos.addScaledVector(tmp,step); b.g.rotation.y=Math.atan2(tmp.x,tmp.z); }
       b.g.position.set(b.pos.x,Math.abs(Math.sin(t*10+b.phase))*0.12,b.pos.z);
       b.body.rotation.z=Math.sin(t*10+b.phase)*0.08;
     } else {
       const atLounge=b.place==='lounge'; const sofa=atLounge&&loungeSpots[b.spot]?.[2];
       const libS=atLounge&&loungeSpots[b.spot]?.[3]==='lib';
-      const targetRot = atLounge ? (sofa? Math.PI : libS ? Math.atan2(-5.8-b.pos.x, 9.8-b.pos.z) : Math.atan2(-15.5-b.pos.x, 8.2-b.pos.z)) : 0;
+      const inMeet=b.place==='meeting', inPod=b.place==='pod';
+      const targetRot = inMeet ? Math.atan2(0,-7.8-b.pos.z) : inPod ? Math.PI : atLounge ? (sofa? Math.PI : libS ? Math.atan2(-5.8-b.pos.x, 9.8-b.pos.z) : Math.atan2(-15.5-b.pos.x, 8.2-b.pos.z)) : 0;
       b.g.rotation.y += (targetRot-b.g.rotation.y)*Math.min(1,dt*6);
       b.body.rotation.z=0;
       let y=0; if(b.status==='working') y=Math.abs(Math.sin(t*6+b.phase))*0.05;
@@ -654,12 +746,12 @@ const _v=new THREE.Vector3(); let detailMode=null;
 function layoutLabels(){
   const W=innerWidth,H=innerHeight;
   const detail = camera.zoom>=1.7;
-  if(detail!==detailMode){ detailMode=detail; labelLayer.classList.toggle('detail',detail); bots.forEach(b=>b.dirty=true); roomList.forEach(r=>r.w=0); }
+  if(detail!==detailMode){ detailMode=detail; labelLayer.classList.toggle('detail',detail); allFigures().forEach(b=>b.dirty=true); roomList.forEach(r=>r.w=0); }
   const placed=[];
   for(const r of roomList){ if(!r.w){ r.w=r.el.offsetWidth; r.h=r.el.offsetHeight; } _v.copy(r.pos).project(camera);
     const x=(_v.x+1)/2*W, y=(1-_v.y)/2*H; placed.push([x-r.w/2,y-r.h/2,x+r.w/2,y+r.h/2]); }
   const items=[];
-  for(const b of bots){ if(b.dirty){ b.lw=b.el.offsetWidth; b.lh=b.el.offsetHeight; b.dirty=false; }
+  for(const b of allFigures()){ if(b.dirty){ b.lw=b.el.offsetWidth; b.lh=b.el.offsetHeight; b.dirty=false; }
     _v.set(b.g.position.x,b.g.position.y+2.35,b.g.position.z).project(camera);
     items.push({b,ax:(_v.x+1)/2*W, ay:(1-_v.y)/2*H}); }
   // 选中的优先，其次离镜头近（屏幕靠下）的优先放置
@@ -702,20 +794,26 @@ function animate(){
 (async function init(){
   DATA=await loadData(); STATUS=DATA.statuses||FALLBACK.statuses;
   if(DATA.title) document.getElementById('title').textContent=DATA.title;
-  const dirDef=DATA.bots.find(b=>b.director)||DATA.bots[0];
-  const crew=DATA.bots.filter(b=>b!==dirDef);
-  makeBot(dirDef,{x:-15.5,z:-9.75},dirDesk);
-  crew.slice(0,deskSlots.length).forEach((def,i)=>{ const s=deskSlots[i]; const dk=desk(s.x,s.z); makeBot(def,{x:s.x,z:s.z-1.15},dk); });
+  RULES={...DEFAULT_RULES,...(DATA.rules||{})};
+  const offDef=DATA.bots.find(b=>b.seat==='directorOffice');
+  if(offDef){ const ob=makeBot(offDef,{x:-15.5,z:-9.75},dirDesk); ob.office=true; ob.place='office'; }
+  DATA.bots.filter(b=>b!==offDef).slice(0,deskSlots.length).forEach((def,i)=>{ const s=deskSlots[i]; const dk=desk(s.x,s.z); makeBot(def,{x:s.x,z:s.z-1.15},dk); });
   buildList();
   const init=['working','working','thinking','browsing','working','thinking','working','browsing','help','working','done','thinking'];
-  bots.forEach((b,i)=>setStatus(b, b.def.director?'working':(i%6===5?'idle':init[i%init.length]), pick(b.def.tasks)));
-  // 空闲者直接放到休息区
-  for(const b of bots) if(b.status==='idle'&&b.path.length){ const last=b.path[b.path.length-1]; b.pos.copy(last); b.path=[]; b.place='lounge'; }
+  bots.forEach((b,i)=>setStatus(b, (b.def.dispatcher||b.office)?'working':(i%6===5?'idle':init[i%init.length]), pick(b.def.tasks)));
+  // 演示数据：学习群在会议室群聊 + 专注舱 2 位（第 3 位因舱满留在工位）
+  const byId=id=>bots.find(b=>b.def.id===id);
+  for(const c of (DATA.demo?.groupChats||[])){ const g=(DATA.groups||[]).find(x=>x.id===c.group); const mem=(c.members||g?.members||[]).map(byId).filter(b=>b&&!b.office); if(g) startMeeting(g,c.topic,mem); }
+  for(const f of (DATA.demo?.focus||[])){ const b=byId(f.id); if(!b||b.meeting||b.office) continue;
+    setStatus(b,'working',f.task); b.deep=true; b.task='深度任务：'+f.task; b.workSince=performance.now()-(f.deepSeconds||0)*1000;
+    if(deepSeconds(b)>RULES.focusPod.minSeconds) startFocus(b); }
+  // 初始直接就位（不走路）
+  for(const b of bots) if(b.path.length){ const last=b.path[b.path.length-1]; b.pos.copy(last); b.g.position.copy(last); b.path=[]; b.place=b.place.replace('walking-',''); }
   confParts.length=CONF_MAX; confParts.fill(null);
-  setInterval(demoTick,2600); setInterval(directorTick,6500);
+  setInterval(demoTick,2600); setInterval(directorTick,6500); setInterval(specialTick,3000);
   setTimeout(directorTick,1500);
   renderer.setAnimationLoop(animate);
   setTimeout(()=>document.getElementById('loading').classList.add('gone'),200);
-  window.__office={bots,setStatus,camera,controls,THREE};
+  window.__office={bots,meetings,setStatus,startMeeting,startFocus,camera,controls,THREE};
   window.__officeReady=true;
 })();

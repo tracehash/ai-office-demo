@@ -1,5 +1,5 @@
 {
- "version": 1,
+ "version": 2,
  "title": "31V 的 AI 团队",
  "statuses": {
   "working": {
@@ -25,6 +25,14 @@
   "done": {
    "label": "已完成",
    "color": "#e3a316"
+  },
+  "meeting": {
+   "label": "群聊中",
+   "color": "#0d9488"
+  },
+  "focus": {
+   "label": "专注",
+   "color": "#be185d"
   }
  },
  "bots": [
@@ -32,15 +40,15 @@
    "id": "grok",
    "name": "Grok Bot",
    "short": "Grok Bot",
-   "role": "总监·调度",
+   "role": "调度·协调",
    "color": "#1f2937",
-   "director": true,
    "tasks": [
     "分派今日任务",
     "协调团队进度",
     "汇总各组产出",
     "安排下一步计划"
-   ]
+   ],
+   "dispatcher": true
   },
   {
    "id": "aiorg",
@@ -69,14 +77,16 @@
   {
    "id": "oakley",
    "name": "Oakley·首席助理",
-   "short": "Oakley",
-   "role": "事务执行",
+   "short": "Oakley · 首席助理",
+   "role": "首席助理",
    "color": "#7c3aed",
    "tasks": [
-    "安排日程提醒",
-    "整理文件目录",
-    "核对待办事项"
-   ]
+    "安排 31V 今日日程",
+    "整理待批文件",
+    "跟进各组交付节点",
+    "准备会议材料"
+   ],
+   "seat": "directorOffice"
   },
   {
    "id": "herald",
@@ -244,6 +254,142 @@
     "制定学习计划",
     "安排复习节奏",
     "推荐学习资源"
+   ]
+  }
+ ],
+ "rules": {
+  "directorOffice": {
+   "bot": "oakley",
+   "legend": "总监室 → 首席助理 Oakley 常驻"
+  },
+  "meetingRoom": {
+   "status": "meeting",
+   "trigger": "groupChat",
+   "minParticipants": 2,
+   "capacity": 8,
+   "when": "bot 正在同一个群聊中（见 groups，如 学习群）",
+   "action": "该群聊的在线成员一起走进会议室；群聊结束后回工位",
+   "legend": "群聊中（同一群 ≥2 位）→ 会议室"
+  },
+  "focusPod": {
+   "status": "focus",
+   "trigger": "deepWork",
+   "minSeconds": 30,
+   "capacity": 2,
+   "overflow": "desk",
+   "when": "连续深度工作超过 30 秒（任务标记 deep，且状态一直是 工作中）",
+   "action": "占用一个空闲专注舱；2 个舱都满时留在自己工位专注",
+   "legend": "连续深度工作 >30 秒 → 专注舱，满员留工位"
+  },
+  "lounge": {
+   "status": [
+    "idle"
+   ],
+   "legend": "空闲 → 休息区 / 图书角"
+  },
+  "desk": {
+   "status": [
+    "working",
+    "thinking",
+    "browsing",
+    "help",
+    "done"
+   ],
+   "legend": "其他状态 → 自己的工位"
+  }
+ },
+ "demo": {
+  "groupChats": [
+   {
+    "group": "study",
+    "topic": "本周学习复盘：费曼讲解 + 漏洞挑刺",
+    "members": [
+     "damo",
+     "feynman",
+     "bugcheck",
+     "advisor"
+    ]
+   }
+  ],
+  "focus": [
+   {
+    "id": "emba",
+    "task": "撰写 EMBA 课程长文笔记",
+    "deepSeconds": 45
+   },
+   {
+    "id": "film",
+    "task": "打磨电影剧本第二幕",
+    "deepSeconds": 38
+   },
+   {
+    "id": "humanity",
+    "task": "精读《人类简史》并做批注",
+    "deepSeconds": 33
+   }
+  ],
+  "chatTopics": [
+   "今日进展同步",
+   "资料互相审阅",
+   "下周计划对齐",
+   "问题集中讨论"
+  ],
+  "deepTasks": [
+   "长篇研究报告撰写",
+   "全量逻辑审查",
+   "深度文献精读",
+   "年度复盘长文"
+  ],
+  "deepChance": 0.3
+ },
+ "groups": [
+  {
+   "id": "study",
+   "name": "学习群",
+   "members": [
+    "damo",
+    "feynman",
+    "bugcheck",
+    "advisor",
+    "emba"
+   ]
+  },
+  {
+   "id": "aiwork",
+   "name": "AI 落地工作群",
+   "members": [
+    "aiorg",
+    "marshall",
+    "herald",
+    "bugcheck"
+   ]
+  },
+  {
+   "id": "city",
+   "name": "城市交通研究群",
+   "members": [
+    "urban",
+    "bus",
+    "herald"
+   ]
+  },
+  {
+   "id": "creative",
+   "name": "创意内容群",
+   "members": [
+    "design",
+    "film",
+    "fashion",
+    "social"
+   ]
+  },
+  {
+   "id": "life",
+   "name": "健康生活群",
+   "members": [
+    "health",
+    "fashion",
+    "feynman"
    ]
   }
  ]
