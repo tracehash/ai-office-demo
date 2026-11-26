@@ -14,12 +14,19 @@
 - 总监室背墙：律所合伙人式落地胡桃木书墙（InstancedMesh 书本 + 地球仪、花瓶、相框、雕塑、黄铜台灯、层板暖光）。
 - Bot 标签：屏幕空间防重叠布局（逐帧计算，近处优先，冲突时上移/侧移并画引导线），默认只显示简称+状态点，放大或选中时显示状态与角色。bots.json 新增 short 字段。
 
-## v4 · 中央公园景观窗
+## v4 · 落地玻璃景观窗
 - 开放工位区背后的两段外墙（后墙 x∈[-11,11]，左墙 z∈[-4.2,2.2]）改为落地玻璃幕墙：青铜色细竖梃、胡桃木窗台、半透明微反光玻璃。
-- 窗外为纽约中央公园高空实景照片（同一张图在两面墙上取不同裁切），夜间整体压暗偏蓝，并在照片中楼宇位置自动撒上暖色窗灯（避开公园绿地与天空）。
+
+## v5 · 东京塔景观 + 祖母绿地毯
+- 开放工位区地毯改为深祖母绿（#1f4d3a）；总监室及其他地毯保持蓝色。
+- 窗外改为东京港区高层写字楼俯瞰视角（约 30–40 层高度），东京塔位于两面窗裁切的中央。
+- 夜间：景观整体压暗为黄昏/夜色，楼宇位置自动点亮暖色与冷白窗灯（避开天空与绿地），东京塔叠加橙色发光轮廓与光晕。
+- 旧的中央公园照片（`assets/centralpark.jpg`）已不再使用，已从部署文件中移除。
 
 ### 图片来源与许可
-- 文件：`assets/centralpark.jpg`（由原图裁去上部天空，缩放至 1600×471，JPEG 约 110 KB，轻微提高饱和度）
-- 原图：“Central Park from the Top of the Rock 2”，作者 Tony Hisgett（Birmingham, UK），摄于 2010-06-01
-- 来源：https://commons.wikimedia.org/wiki/File:Central_Park_from_the_Top_of_the_Rock_2_(4693129360).jpg （原始 Flickr：https://www.flickr.com/photos/hisgett/4693129360/）
-- 许可：CC BY 2.0 — https://creativecommons.org/licenses/by/2.0/ （已修改：裁切、缩放、调色）。页面页脚亦有署名链接。
+- 文件：`assets/tokyotower.jpg`（1600×259，JPEG 约 120 KB）
+- 原图：“Tokyo Minato Panorama.jpg”，作者 Tokyoship，摄于 2011-03-09
+- 来源：https://commons.wikimedia.org/wiki/File:Tokyo_Minato_Panorama.jpg
+- 许可：CC BY-SA 3.0 — https://creativecommons.org/licenses/by-sa/3.0/
+- 修改内容：缩放；以原图左侧城市带向右延伸约 23%（渐变融合），使东京塔居中；整体略降饱和度与对比度；东京塔局部轻度增强饱和度/对比度与锐化。
+- 依据 CC BY-SA 3.0 的相同方式共享条款，修改后的 `assets/tokyotower.jpg` 同样以 CC BY-SA 3.0 授权发布。页面页脚亦有署名链接。

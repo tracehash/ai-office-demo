@@ -160,38 +160,49 @@ const floor = boxM(FX*2,0.06,FZ*2,MAT.terrazzo,0,0.03,0);
 // 宝蓝色地毯与走道
 box(9,0.04,9,C.blue,-15.5,0.08,-8.5);                // 总监室：满铺宝蓝地毯
 box(8,0.04,7.6,C.blueDeep,15.5,0.08,-8.2);            // 会议室：宝蓝地毯
-box(21.4,0.04,18.0,C.blue,-0.25,0.08,-3.9);           // 开放工位区：整块宝蓝地毯
+box(21.4,0.04,18.0,'#1f4d3a',-0.25,0.08,-3.9);        // 开放工位区：整块深祖母绿地毯
 // 混凝土外墙 + 胡桃木护墙板
-// 外墙：开放工位区背后两段改为落地玻璃幕墙（见下方“中央公园景观窗”）
+// 外墙：开放工位区背后两段改为落地玻璃幕墙（见下方“东京塔景观窗”）
 boxM(9,3.4,0.4,MAT.concrete,-15.5,1.7,-FZ-0.2); boxM(9,3.4,0.4,MAT.concrete,15.5,1.7,-FZ-0.2);
 boxM(0.4,3.4,9.2,MAT.concrete,-FX-0.2,1.7,-8.8); boxM(0.4,3.4,11.0,MAT.concrete,-FX-0.2,1.7,7.7);
 for(let z=2.6;z<=12.8;z+=0.42) boxM(0.08,2.2,0.3,MAT.walnut,-FX+0.05,1.15,z,scene,false); // 休息区木格栅墙
 // 挂画与竖向灯带
 art(-FX+0.16,2.2,7.6,2.4,1.3,['#2443a6','#e3c7a0','#b4532a'],'x');
 
-// ---------- 中央公园景观窗（落地玻璃幕墙 + 窗外实景照片） ----------
-// 照片：Tony Hisgett《Central Park from the Top of the Rock 2》，CC BY 2.0（见 README）
+// ---------- 东京塔景观窗（落地玻璃幕墙 + 窗外实景照片） ----------
+// 照片：Tokyoship《Tokyo Minato Panorama》，CC BY-SA 3.0，经裁切/拼接/调色（见 README）
 const viewMats=[]; let cityLightsMat=null;
 {
   const loader=new THREE.TextureLoader();
-  const base=loader.load('assets/centralpark.jpg', t=>buildCityLights(t.image));
+  const base=loader.load('assets/tokyotower.jpg', t=>buildCityLights(t.image));
   base.colorSpace=THREE.SRGBColorSpace; base.anisotropy=4;
-  const lightsCv=document.createElement('canvas'); lightsCv.width=800; lightsCv.height=236;
+  const lightsCv=document.createElement('canvas'); lightsCv.width=1600; lightsCv.height=259;
   const lightsTex=new THREE.CanvasTexture(lightsCv); lightsTex.colorSpace=THREE.SRGBColorSpace;
   cityLightsMat=new THREE.MeshBasicMaterial({map:lightsTex,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false});
   // 夜景：在照片里“楼宇”像素处撒暖色窗灯（避开天空与公园绿地）
   function buildCityLights(img){
     const W=lightsCv.width,H=lightsCv.height; const sc=document.createElement('canvas'); sc.width=W; sc.height=H; const sx=sc.getContext('2d'); sx.drawImage(img,0,0,W,H);
     const px=sx.getImageData(0,0,W,H).data; const c=lightsCv.getContext('2d'); c.clearRect(0,0,W,H);
-    // 粗网格统计“绿地”比例：公园所在格子不放灯；天空（上部/高亮）也不放
+    // 粗网格统计“绿地”比例：绿地（树林）所在格子不放灯；天空（上部/高亮）也不放
     const CS=12, GX=Math.ceil(W/CS), GY=Math.ceil(H/CS), green=new Float32Array(GX*GY);
     for(let y=0;y<H;y+=2) for(let x=0;x<W;x+=2){ const k=(y*W+x)*4; if(px[k+1]>px[k]+3 && px[k+1]>=px[k+2]) green[((y/CS)|0)*GX+((x/CS)|0)]+=4/(CS*CS); }
     const parkAt=(x,y)=>{ const gx=(x/CS)|0, gy=(y/CS)|0; for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){ const v=green[(gy+dy)*GX+gx+dx]; if(v>0.07) return true; } return false; };
-    for(let i=0;i<3200;i++){ const x=Math.random()*W|0, y=(H*0.29+Math.random()*H*0.71)|0, k=(y*W+x)*4;
-      const bright=(px[k]+px[k+1]+px[k+2])/3; if(bright>165 || parkAt(x,y)) continue;
-      c.fillStyle=pick(['rgba(255,196,120,','rgba(255,220,160,','rgba(255,170,90,'])+rand(0.45,0.95)+')'; c.fillRect(x,y,rand(0.8,1.8),rand(0.8,1.5)); }
-    // 远处天际线的柔光
-    const g=c.createLinearGradient(0,H*0.2,0,H*0.34); g.addColorStop(0,'rgba(255,140,70,0)'); g.addColorStop(1,'rgba(255,140,70,0.16)'); c.fillStyle=g; c.fillRect(0,H*0.2,W,H*0.14);
+    for(let i=0;i<6500;i++){ const x=Math.random()*W|0, y=(H*0.3+Math.random()*H*0.7)|0, k=(y*W+x)*4;
+      const bright=(px[k]+px[k+1]+px[k+2])/3; if(bright>215 || parkAt(x,y)) continue;
+      if(Math.abs(x-W*0.5012)<W*0.02 && y<H*0.76) continue;   // 塔身区域留给下面的塔灯
+      c.fillStyle=pick(['rgba(255,196,120,','rgba(255,220,160,','rgba(255,170,90,','rgba(220,235,255,'])+rand(0.45,0.95)+')'; c.fillRect(x,y,rand(1,2.2),rand(1,1.8)); }
+    // 远处天际线的暮色柔光
+    const g=c.createLinearGradient(0,H*0.22,0,H*0.42); g.addColorStop(0,'rgba(255,140,70,0)'); g.addColorStop(1,'rgba(255,140,70,0.22)'); c.fillStyle=g; c.fillRect(0,H*0.22,W,H*0.2);
+    // 东京塔夜间橙色灯光：按照片中塔的位置画发光轮廓（塔心 x≈0.501W，塔尖≈0.02H，塔脚≈0.74H）
+    const cx=W*0.5012, P=(dx,fy)=>[cx+dx*W, fy*H];
+    const half=[[0.0006,0.02],[0.0013,0.18],[0.0045,0.20],[0.0045,0.235],[0.0035,0.25],[0.004,0.47],[0.0068,0.49],[0.0068,0.51],[0.0058,0.53],[0.0062,0.61],[0.0095,0.67],[0.0155,0.74]];
+    c.save(); c.beginPath();
+    half.forEach(([dx,fy],i)=>{ const [x,y]=P(dx,fy); i?c.lineTo(x,y):c.moveTo(x,y); });
+    [...half].reverse().forEach(([dx,fy])=>{ const [x,y]=P(-dx,fy); c.lineTo(x,y); }); c.closePath();
+    const tg=c.createLinearGradient(0,H*0.02,0,H*0.74); tg.addColorStop(0,'rgba(255,235,190,1)'); tg.addColorStop(0.3,'rgba(255,170,70,1)'); tg.addColorStop(1,'rgba(255,110,30,1)');
+    c.shadowColor='rgba(255,140,40,0.9)'; c.shadowBlur=20; c.fillStyle=tg; c.fill(); c.fill(); c.restore();
+    // 塔周围的光晕
+    const halo=c.createRadialGradient(cx,H*0.45,2,cx,H*0.45,H*0.45); halo.addColorStop(0,'rgba(255,140,50,0.35)'); halo.addColorStop(1,'rgba(255,140,50,0)'); c.fillStyle=halo; c.fillRect(cx-H*0.5,0,H,H);
     lightsTex.needsUpdate=true;
   }
   // 同一张照片，不同墙用不同裁切（u/v 偏移），避免拉伸
@@ -201,14 +212,14 @@ const viewMats=[]; let cityLightsMat=null;
     const m=new THREE.MeshBasicMaterial({map:base,toneMapped:false}); viewMats.push(m);
     const g=new THREE.Group(); g.add(new THREE.Mesh(geo,m)); const l=new THREE.Mesh(geo,cityLightsMat); l.position.z=0.01; g.add(l); return g;
   }
-  const IMG_AR=1600/471;
+  const IMG_AR=1600/259;
   // 后墙 x∈[-11,11]（22×3.4）
   { const w=22, h=3.5, vs=(1/IMG_AR)*(IMG_AR*h/w); // 竖向所占比例
-    const vspan=(w/h)>IMG_AR ? IMG_AR/(w/h) : 1; const v0=0.17;
+    const vspan=(w/h)>IMG_AR ? IMG_AR/(w/h) : 1; const v0=(1-vspan)/2;   // 全幅横向，东京塔位于正中
     const p=viewPlane(w,h,0,1,v0,v0+vspan); p.position.set(0,h/2,-FZ-0.35); scene.add(p); }
   // 左墙 z∈[-4.2,2.2]（6.4×3.4），取公园居中的一段
-  { const w=6.4, h=3.5, vspan=0.78, uspan=(w/h)*vspan/IMG_AR, uc=0.42;
-    const p=viewPlane(w,h,uc-uspan/2,uc+uspan/2,0.12,0.12+vspan); p.rotation.y=Math.PI/2; p.position.set(-FX-0.35,h/2,-1.0); scene.add(p); }
+  { const w=6.4, h=3.5, vspan=1, uspan=(w/h)*vspan/IMG_AR, uc=0.5012;   // 以东京塔为中心裁切
+    const p=viewPlane(w,h,uc-uspan/2,uc+uspan/2,0,vspan); p.rotation.y=Math.PI/2; p.position.set(-FX-0.35,h/2,-1.0); scene.add(p); }
   // 玻璃、青铜色竖梃、胡桃木窗台、顶部横梁
   const glassM=new THREE.MeshStandardMaterial({color:'#c9dbe2',transparent:true,opacity:0.16,roughness:0.04,metalness:0.35,depthWrite:false});
   const bronze=M('#2e261e',{metalness:0.55,roughness:0.4});
