@@ -54,7 +54,7 @@ Object.assign(labelRenderer.domElement.style,{position:'absolute',top:'0',left:'
 container.appendChild(labelRenderer.domElement);
 
 const scene = new THREE.Scene();
-const DAY_BG = new THREE.Color('#dfe9f2'), NIGHT_BG = new THREE.Color('#0f172a');
+const DAY_BG = new THREE.Color('#e9e1d3'), NIGHT_BG = new THREE.Color('#15100c');
 scene.background = DAY_BG.clone();
 
 const camera = new THREE.OrthographicCamera(-1,1,1,-1,0.1,500);
@@ -89,8 +89,8 @@ function resize(){
 }
 resize(); addEventListener('resize', resize);
 
-const hemi = new THREE.HemisphereLight('#ffffff','#b9c4cf',1.6); scene.add(hemi);
-const sun = new THREE.DirectionalLight('#fff6e8', 2.2);
+const hemi = new THREE.HemisphereLight('#fff3e2','#8f8070',1.45); scene.add(hemi);
+const sun = new THREE.DirectionalLight('#ffe6c4', 2.1);
 sun.position.set(18,30,12); sun.castShadow = true;
 sun.shadow.mapSize.set(2048,2048);
 Object.assign(sun.shadow.camera,{left:-26,right:26,top:22,bottom:-22,near:1,far:80});
@@ -105,102 +105,204 @@ function cyl(rt,rb,h,color,x,y,z,parent=scene,seg=12){ const m = new THREE.Mesh(
 const roomEls={};
 function roomLabel(text,x,y,z){ const d=document.createElement('div'); roomEls[text]=d; d.className='room'; d.textContent=text; const o=new CSS2DObject(d); o.position.set(x,y,z); scene.add(o); }
 
+// ---------- 材质与程序化纹理（全部用小画布生成，手机友好） ----------
+function canvasTex(size, draw, rx=1, ry=1){
+  const c=document.createElement('canvas'); c.width=c.height=size; draw(c.getContext('2d'),size);
+  const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(rx,ry); t.anisotropy=4; return t;
+}
+function speckle(ctx,s,bg,dots){ ctx.fillStyle=bg; ctx.fillRect(0,0,s,s); for(const [col,n,r0,r1] of dots){ ctx.fillStyle=col; for(let i=0;i<n;i++){ ctx.beginPath(); ctx.arc(Math.random()*s,Math.random()*s,rand(r0,r1),0,Math.PI*2); ctx.fill(); } } }
+function veins(ctx,s,bg,vein,n,alpha){ ctx.fillStyle=bg; ctx.fillRect(0,0,s,s); ctx.strokeStyle=vein; ctx.lineCap='round';
+  for(let i=0;i<n;i++){ ctx.globalAlpha=rand(alpha*0.4,alpha); ctx.lineWidth=rand(0.6,2.4); ctx.beginPath(); let x=rand(-20,s), y=rand(-20,s); ctx.moveTo(x,y);
+    for(let k=0;k<5;k++){ x+=rand(10,70); y+=rand(-30,60); ctx.quadraticCurveTo(x-rand(0,30),y-rand(-20,20),x,y); } ctx.stroke(); } ctx.globalAlpha=1; }
+const TX = {
+  terrazzo: canvasTex(256,(c,s)=>speckle(c,s,'#e4ded4',[['#c9c1b4',260,0.8,2.2],['#f7f4ee',160,0.8,2.4],['#9b958c',90,0.6,1.6],['#b86b4b',26,0.8,1.8],['#5a74b8',18,0.8,1.6]]),9,6),
+  concrete: canvasTex(128,(c,s)=>speckle(c,s,'#9e9a94',[['#8f8b85',220,0.5,1.6],['#aeaaa4',200,0.5,1.8],['#85817b',30,1,2.5]]),6,1),
+  nero: canvasTex(256,(c,s)=>veins(c,s,'#151515','#f2f2f2',14,0.85)),
+  creamMarble: canvasTex(256,(c,s)=>veins(c,s,'#ebe5d6','#7f9a83',16,0.7)),
+  walnut: canvasTex(128,(c,s)=>{ c.fillStyle='#5a3824'; c.fillRect(0,0,s,s); for(let i=0;i<46;i++){ c.strokeStyle=pick(['#4a2c1b','#6a4530','#3f2516']); c.globalAlpha=rand(0.25,0.6); c.lineWidth=rand(0.6,2); c.beginPath(); const y=rand(0,s); c.moveTo(0,y); c.bezierCurveTo(s*0.3,y+rand(-6,6),s*0.6,y+rand(-6,6),s,y+rand(-3,3)); c.stroke(); } c.globalAlpha=1; }),
+};
+const MAT = {
+  terrazzo: new THREE.MeshStandardMaterial({map:TX.terrazzo, roughness:0.55}),
+  concrete: new THREE.MeshStandardMaterial({map:TX.concrete, roughness:0.95}),
+  nero: new THREE.MeshStandardMaterial({map:TX.nero, roughness:0.25, metalness:0.1}),
+  creamMarble: new THREE.MeshStandardMaterial({map:TX.creamMarble, roughness:0.3}),
+  walnut: new THREE.MeshStandardMaterial({map:TX.walnut, roughness:0.6}),
+  walnutDark: new THREE.MeshStandardMaterial({map:TX.walnut, color:'#a88a78', roughness:0.55}),
+  amberGlass: new THREE.MeshStandardMaterial({color:'#e0902f', emissive:'#c0661a', emissiveIntensity:0.25, transparent:true, opacity:0.78, roughness:0.15}),
+  glass: new THREE.MeshStandardMaterial({color:'#cfe0e6', transparent:true, opacity:0.22, roughness:0.05}),
+};
+const C = { walnut:'#5a3824', walnutDark:'#3b2416', cream:'#efe7d8', boucle:'#f3ede2', caramel:'#a85f2a', caramelHi:'#bd7438', blue:'#2443a6', blueDeep:'#1b3184', rust:'#b4532a', black:'#1d1d1d', metal:'#2a2a2a', paleBlue:'#a9c4d6' };
+function boxM(w,h,d,mat,x,y,z,parent=scene,shadow=true){ const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat); m.position.set(x,y,z); m.castShadow=shadow; m.receiveShadow=true; parent.add(m); return m; }
+// 发光体（灯带/灯盘），昼夜切换时调节亮度
+const glowMats=[];
+function glowMat(color,day=0.7,nightI=2.2){ const m=new THREE.MeshStandardMaterial({color:'#fff6e6',emissive:color,emissiveIntensity:day}); m.userData={day,night:nightI}; glowMats.push(m); return m; }
+const warmGlow = glowMat('#ffc98a',0.6,2.4);
+function lightStrip(x,y,z,h,axis='z'){ const g=new THREE.Mesh(new THREE.BoxGeometry(axis==='z'?0.1:0.06,h,axis==='z'?0.06:0.1),warmGlow); g.position.set(x,y,z); scene.add(g); }
+function ceilingDisc(x,z,r,sx=1,y=4.05){ const g=new THREE.Group(); g.position.set(x,y,z); g.scale.set(sx,1,1); scene.add(g);
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(r,0.07,8,40),glowMat('#ffbf73',0.45,2.8)); ring.material.color.set('#e8cfa8'); ring.rotation.x=Math.PI/2; g.add(ring);
+  const disc=new THREE.Mesh(new THREE.CircleGeometry(r,40),new THREE.MeshBasicMaterial({color:'#ffe2b8',transparent:true,opacity:0.18,side:THREE.DoubleSide,depthWrite:false})); disc.rotation.x=Math.PI/2; g.add(disc); return g; }
+function art(x,y,z,w,h,colors,face='z'){ // 带框挂画（抽象色块）
+  const g=new THREE.Group(); g.position.set(x,y,z); if(face==='x') g.rotation.y=Math.PI/2; scene.add(g);
+  boxM(w+0.12,h+0.12,0.06,M(C.black),0,0,0,g,false);
+  const t=canvasTex(128,(c,s)=>{ c.fillStyle='#f1ebe0'; c.fillRect(0,0,s,s); colors.forEach((col,i)=>{ c.fillStyle=col; c.globalAlpha=0.9; c.beginPath(); c.arc(rand(25,103),rand(25,103),rand(14,34),0,Math.PI*2); c.fill(); }); c.globalAlpha=1; c.fillStyle='#1d1d1d'; c.fillRect(18,96,92,3); });
+  const p=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshStandardMaterial({map:t,roughness:0.9})); p.position.z=0.035; g.add(p); return g; }
+
 // ---------- 地面与墙 ----------
 const FX=20, FZ=13;
-box(FX*2+0.6,0.5,FZ*2+0.6,'#c9b79c',0,-0.25,0); // 底座
-const floor = box(FX*2,0.06,FZ*2,'#efe6d8',0,0.03,0);
-// 区域地毯
-box(9,0.04,9,'#d6e4f0',-15.5,0.08,-8.5);    // 总监室
-box(9,0.04,9,'#e4dcef',15.5,0.08,-8.5);     // 会议室
-box(9,0.04,10.5,'#dcefdc',-15.5,0.08,7.6);  // 休息区
-box(9,0.04,10.5,'#f3e3cf',15.5,0.08,7.6);   // 茶水间
-// 外墙（后、左）
-box(FX*2,3.2,0.4,'#f7f3ec',0,1.6,-FZ-0.2);
-box(0.4,3.2,FZ*2+0.4,'#f7f3ec',-FX-0.2,1.6,0);
-// 墙上的窗
-const winMat = new THREE.MeshStandardMaterial({color:'#bfe3ff', emissive:'#000000', roughness:0.3});
-const windows=[];
-for(const x of [-6,-1,4]){ const w = new THREE.Mesh(new THREE.BoxGeometry(3.2,1.6,0.08),winMat); w.position.set(x,1.9,-FZ+0.02); scene.add(w); windows.push(w); }
-for(const z of [-1, 4]){ const w = new THREE.Mesh(new THREE.BoxGeometry(0.08,1.6,3),winMat); w.position.set(-FX+0.02,1.9,z); scene.add(w); }
-// 玻璃隔断
-const glass = M('#a8d8e8',{transparent:true,opacity:0.35,roughness:0.1});
-function glassWall(w,d,x,z){ const m=new THREE.Mesh(new THREE.BoxGeometry(w,2.2,d),glass); m.position.set(x,1.1,z); scene.add(m); box(w+0.02,0.12,d+0.02,'#7a8b99',x,2.2,z); box(w+0.02,0.1,d+0.02,'#7a8b99',x,0.05,z); }
-glassWall(9,0.1,-15.5+1.5,-4); glassWall(0.1,9,-11,-8.5);   // 总监室（门在左侧）
-glassWall(0.1,9,11,-8.5); glassWall(6,0.1,14,-4);            // 会议室（门在右侧）
-// 低矮隔断
-box(9,0.9,0.25,'#d9cbb5',-15.5,0.45,2.2);
-box(9,0.9,0.25,'#d9cbb5',15.5,0.45,2.2);
-box(0.25,0.9,4,'#d9cbb5',11,0.45,11);
+boxM(FX*2+0.6,0.5,FZ*2+0.6,MAT.walnutDark,0,-0.25,0); // 底座（胡桃木）
+const floor = boxM(FX*2,0.06,FZ*2,MAT.terrazzo,0,0.03,0);
+// 宝蓝色地毯与走道
+box(9,0.04,9,'#ddd5c6',-15.5,0.08,-8.5);             // 总监室：浅米色地毯
+box(8,0.04,7.6,C.blueDeep,15.5,0.08,-8.2);            // 会议室：宝蓝地毯
+box(1.3,0.035,15.2,C.blue,-10.2,0.075,-3.2);          // 左侧走廊跑道
+box(20.4,0.035,1.3,C.blue,-0.2,0.075,4.3);            // 前方走道跑道
+for(const z of [-5.8,-0.2]) box(19.4,0.035,1.1,C.blue,0,0.075,z); // 工位行间跑道
+// 混凝土外墙 + 胡桃木护墙板
+boxM(FX*2,3.4,0.4,MAT.concrete,0,1.7,-FZ-0.2);
+boxM(0.4,3.4,FZ*2+0.4,MAT.concrete,-FX-0.2,1.7,0);
+for(let x=-9.6;x<=9.6;x+=0.42) boxM(0.3,3.1,0.08,MAT.walnut,x,1.6,-FZ+0.05,scene,false);  // 开放区木格栅墙
+for(let z=2.6;z<=12.8;z+=0.42) boxM(0.08,2.2,0.3,MAT.walnut,-FX+0.05,1.15,z,scene,false); // 休息区木格栅墙
+// 挂画与竖向灯带
+art(-5.2,2.15,-FZ+0.16,2.2,1.4,['#2443a6','#b4532a','#d9b68a']);
+art(5.2,2.15,-FZ+0.16,2.2,1.4,['#b4532a','#1d1d1d','#2443a6']);
+art(-FX+0.16,2.2,7.6,2.4,1.3,['#2443a6','#e3c7a0','#b4532a'],'x');
+for(const x of [-9.9,-0.0,9.9]) lightStrip(x,1.7,-FZ+0.12,3.0);
+for(const z of [3,12.4]) lightStrip(-FX+0.12,1.6,z,2.4,'x');
+// 清水混凝土柱
+for(const [x,z] of [[-10.95,-1.5],[10.5,-1.5],[10.5,-12.6],[-10.95,5.7]]) boxM(0.7,4.2,0.7,MAT.concrete,x,2.1,z);
+// 开放工位上方：胡桃木格栅吊顶（细梁，不挡视线）
+const beamM=MAT.walnut;
+for(const z of [-11.2,-5.8,-0.2,4.9]) boxM(19.6,0.16,0.16,beamM,0,4.3,z,scene,false);
+for(let x=-9.6;x<=9.7;x+=3.2) boxM(0.16,0.16,16.1,beamM,x,4.3,-3.15,scene,false);
+// 玻璃隔断（黑色金属框）
+function glassWall(w,d,x,z,h=2.4){ boxM(w,h,d,MAT.glass,x,h/2,z,scene,false); box(w+0.02,0.08,d+0.02,C.metal,x,h,z); box(w+0.02,0.08,d+0.02,C.metal,x,0.04,z);
+  const n=Math.max(1,Math.round(Math.max(w,d)/1.8)); for(let i=0;i<=n;i++){ const t=-0.5+i/n; box(0.05,h,0.05,C.metal,x+(w>d?t*w:0),h/2,z+(w>d?0:t*d)); } }
+glassWall(9,0.1,-14,-4); glassWall(0.1,9,-11,-8.5);   // 总监室（门在左侧）
+glassWall(0.1,9,11,-8.5); glassWall(6,0.1,14,-4);     // 会议室（门在右侧）
+// 休息区矮墙（胡桃木）
+boxM(9,0.9,0.25,MAT.walnut,-15.5,0.45,2.2);
 
-roomLabel('总监室',-15.5,2.9,-4); roomLabel('会议室',15.5,1.2,-8.5); roomLabel('开放工位区',0,0.2,5.2);
-roomLabel('休息区',-15.5,1.4,2.2); roomLabel('茶水间',14.5,0.3,7.2);
+roomLabel('总监室',-15.5,0.2,-5.0); roomLabel('会议室',15.5,1.2,-8.5); roomLabel('开放工位区',0,0.2,5.6);
+roomLabel('休息区',-15.5,1.4,2.2); roomLabel('前台 · 茶水间',15.5,0.2,8.9);
+roomLabel('图书角',-5.8,0.2,12.4); roomLabel('禅意庭院',0.8,0.2,12.4); roomLabel('专注舱',7,2.4,12.6);
 
 // ---------- 家具 ----------
 const screens = [];
-function desk(x,z,{w=1.8,top='#c8a27a',dir=false}={}){
+function chair(parent,x,z,rotY=0,color=C.black,seatH=0.48){ const c=new THREE.Group(); c.position.set(x,0,z); c.rotation.y=rotY; parent.add(c);
+  box(0.66,0.12,0.62,color,0,seatH,0,c); box(0.66,0.62,0.1,color,0,seatH+0.35,-0.3,c); cyl(0.04,0.04,seatH-0.06,'#3a3a3a',0,(seatH-0.06)/2,0,c,6); cyl(0.3,0.3,0.03,'#3a3a3a',0,0.02,0,c,10); return c; }
+function desk(x,z,{w=1.8,dir=false}={}){
   const g = new THREE.Group(); g.position.set(x,0,z); scene.add(g);
-  box(w,0.1,1,top,0,0.78,0,g);
-  for(const sx of [-w/2+0.08,w/2-0.08]) for(const sz of [-0.42,0.42]) box(0.08,0.75,0.08,'#6b5b4b',sx,0.38,sz,g);
+  boxM(w,0.08,1,dir?MAT.walnutDark:MAT.walnut,0,0.78,0,g);
+  // 胡桃木抽屉柜 + 黑色金属侧腿
+  const pw=0.48; boxM(pw,0.74,0.92,MAT.walnut,w/2-pw/2-0.02,0.37,0,g);
+  for(const y of [0.2,0.42,0.62]) box(pw-0.1,0.02,0.02,'#c9a27e',w/2-pw/2-0.02,y,0.47,g);
+  box(0.05,0.74,0.9,C.metal,-w/2+0.04,0.37,0,g);
+  if(dir) boxM(pw,0.74,0.92,MAT.walnut,-w/2+pw/2+0.02,0.37,0,g);
   // 显示器（朝向坐在后面的 Bot）
-  box(0.1,0.35,0.1,'#374151',0,0.98,-0.05,g);
-  const scrMat = new THREE.MeshStandardMaterial({color:'#111827', emissive:'#2f9e5b', emissiveIntensity:0.6});
-  const s = new THREE.Mesh(new THREE.BoxGeometry(0.95,0.55,0.06), scrMat); s.position.set(0,1.38,-0.08); s.castShadow=true; g.add(s);
-  box(0.5,0.04,0.2,'#e5e7eb',0,0.85,-0.32,g); // 键盘
-  if(dir){ box(0.3,0.25,0.3,'#16a34a',w/2-0.3,0.95,0.25,g); }
-  else { cyl(0.12,0.1,0.22,pick(['#f87171','#60a5fa','#fbbf24','#34d399']),w/2-0.25,0.94,0.25,g,8); }
-  // 椅子
-  const c = new THREE.Group(); c.position.set(0,0,-0.95); g.add(c);
-  box(0.7,0.1,0.65,'#4b5563',0,0.48,0,c); box(0.7,0.7,0.1,'#4b5563',0,0.85,-0.32,c); cyl(0.05,0.05,0.45,'#9ca3af',0,0.23,0,c,6);
+  box(0.08,0.32,0.08,C.metal,0,0.98,-0.05,g);
+  const scrMat = new THREE.MeshStandardMaterial({color:'#111111', emissive:'#2f9e5b', emissiveIntensity:0.6});
+  const s = new THREE.Mesh(new THREE.BoxGeometry(0.95,0.55,0.05), scrMat); s.position.set(0,1.36,-0.08); s.castShadow=true; g.add(s);
+  box(0.5,0.03,0.18,'#d8d2c6',0,0.835,-0.32,g);
+  if(dir){ cyl(0.11,0.09,0.3,'#e9e3d6',-w/2+0.45,0.97,0.25,g,10); box(0.35,0.06,0.25,C.caramel,0.15,0.85,0.25,g); }
+  else cyl(0.1,0.08,0.18,pick(['#e9e3d6',C.rust,C.blue]),-w/2+0.3,0.91,0.28,g,8);
+  chair(g,0,-0.95,0,dir?C.caramel:C.black);
   return {group:g, screen:scrMat};
 }
-// 总监室：大桌、书架、绿植
-const dirDesk = desk(-15.5,-8.6,{w:2.6,top:'#8b5e3c',dir:true});
-box(0.5,2.4,3,'#8b5e3c',-19.5,1.2,-9.5);
-for(let i=0;i<4;i++) for(let j=0;j<3;j++) box(0.3,0.42,0.22,pick(['#ef4444','#3b82f6','#f59e0b','#10b981','#8b5cf6']),-19.25,0.35+i*0.55,-10.6+j*0.9+rand(-.1,.1));
-function plant(x,z,s=1){ cyl(0.3*s,0.24*s,0.55*s,'#c2703d',x,0.28*s,z,scene,10); const f=new THREE.Mesh(new THREE.IcosahedronGeometry(0.55*s,0),M('#3f9b4f',{flatShading:true})); f.position.set(x,0.95*s,z); f.castShadow=true; scene.add(f); const f2=f.clone(); f2.scale.setScalar(0.7); f2.position.y+=0.55*s; scene.add(f2); }
-plant(-12,-12,1.1); plant(-19,-5,1);
-// 会议室：长桌、椅子、行情大屏
-box(5.2,0.12,2.4,'#f1f5f9',15.5,0.8,-7.8);
-cyl(0.25,0.4,0.78,'#94a3b8',14,0.39,-7.8); cyl(0.25,0.4,0.78,'#94a3b8',17,0.39,-7.8);
-for(const x of [13.5,15.5,17.5]) for(const z of [-9.6,-6]){ box(0.6,0.1,0.6,'#6366f1',x,0.48,z); box(0.6,0.55,0.1,'#6366f1',x,0.78,z+(z<-8?-0.3:0.3)); }
+function plant(x,z,s=1){ cyl(0.28*s,0.22*s,0.6*s,'#2a2a2a',x,0.3*s,z,scene,10); const f=new THREE.Mesh(new THREE.IcosahedronGeometry(0.55*s,0),M('#4f7a46',{flatShading:true})); f.position.set(x,1.0*s,z); f.castShadow=true; scene.add(f); const f2=f.clone(); f2.scale.setScalar(0.7); f2.position.y+=0.55*s; scene.add(f2); }
+function loungeChair(x,z,rotY,color=C.boucle){ const g=new THREE.Group(); g.position.set(x,0,z); g.rotation.y=rotY; scene.add(g);
+  const seat=new THREE.Mesh(new THREE.CylinderGeometry(0.55,0.5,0.42,14),M(color,{roughness:1})); seat.position.y=0.3; seat.castShadow=true; g.add(seat);
+  const back=new THREE.Mesh(new THREE.CylinderGeometry(0.58,0.58,0.62,14,1,false,Math.PI*0.6,Math.PI*0.8),M(color,{roughness:1,side:THREE.DoubleSide})); back.position.y=0.72; back.scale.set(1,1,1); back.castShadow=true; g.add(back);
+  return g; }
+function roundTable(x,z,r,topMat,h=0.72){ const t=new THREE.Mesh(new THREE.CylinderGeometry(r,r,0.07,28),topMat); t.position.set(x,h,z); t.castShadow=true; t.receiveShadow=true; scene.add(t); cyl(0.07,0.07,h,C.walnutDark,x,h/2,z,scene,8); cyl(0.35,0.35,0.04,C.walnutDark,x,0.02,z,scene,14); }
+
+// 总监室：深胡桃木大桌、奶油绿大理石背景墙、焦糖色主椅、两把奶油+胡桃木访客椅、圆形背光灯盘
+boxM(8.6,3.2,0.08,MAT.creamMarble,-15.5,1.65,-FZ+0.06,scene,false);
+boxM(0.08,3.2,8.4,MAT.walnut,-FX+0.06,1.65,-8.6,scene,false);
+const dirDesk = desk(-15.5,-8.6,{w:2.8,dir:true});
+for(const x of [-16.4,-14.6]){ const c=chair(scene,x,-6.9,Math.PI,C.cream,0.46); }
+boxM(0.6,1.2,2.4,MAT.nero,-19.4,0.6,-6.4);             // 黑色大理石边柜
+cyl(0.15,0.12,0.5,'#e9e3d6',-19.4,1.45,-6.0,scene,10);
+plant(-12,-12.1,1.1);
+ceilingDisc(-15.5,-8.6,1.7);
+// 会议室：长胡桃木桌、深色椅、椭圆发光穹顶、黑色大理石电视墙
+boxM(8.6,3.4,0.08,MAT.nero,15.5,1.7,-FZ+0.06,scene,false);
+boxM(6,0.1,2.2,MAT.walnut,15.5,0.8,-7.8);
+for(const x of [13.6,17.4]) boxM(0.5,0.75,1.4,MAT.walnutDark,x,0.38,-7.8);
+for(const x of [13.2,14.75,16.25,17.8]) for(const [z,r] of [[-9.4,0],[-6.2,Math.PI]]) chair(scene,x,z,r,'#262626');
+ceilingDisc(15.5,-7.8,1.6,1.9);
 const btcCanvas = document.createElement('canvas'); btcCanvas.width=1024; btcCanvas.height=512;
 const btcTex = new THREE.CanvasTexture(btcCanvas); btcTex.colorSpace = THREE.SRGBColorSpace; btcTex.anisotropy = 4;
-box(6.6,3.4,0.15,'#111827',15.5,2.9,-12.85);
+box(6.6,3.4,0.15,'#0d0d0d',15.5,2.2,-12.75);
 const btcScreen = new THREE.Mesh(new THREE.PlaneGeometry(6.3,3.15), new THREE.MeshBasicMaterial({map:btcTex, toneMapped:false}));
-btcScreen.position.set(15.5,2.9,-12.76); scene.add(btcScreen);
+btcScreen.position.set(15.5,2.2,-12.66); scene.add(btcScreen);
+lightStrip(11.6,1.7,-FZ+0.12,3.0); lightStrip(19.4,1.7,-FZ+0.12,3.0);
 // 开放工位
 const deskSlots=[]; const cols=[-8,-4.8,-1.6,1.6,4.8,8], rows=[-8.6,-3,2.6];
 for(const z of rows) for(const x of cols) deskSlots.push({x,z});
-plant(-9.3,-12,1); plant(9.3,-12,1); plant(9.3,4.5,0.9);
-// 休息区：沙发、茶几、豆袋、地毯
-const sofaC='#f59e0b';
-box(4.6,0.5,1.2,sofaC,-15.5,0.35,10.6); box(4.6,0.9,0.35,sofaC,-15.5,0.75,11.25); box(0.35,0.7,1.2,sofaC,-17.95,0.6,10.6); box(0.35,0.7,1.2,sofaC,-13.05,0.6,10.6);
-for(const x of [-16.8,-15.5,-14.2]) box(1.1,0.18,1.0,'#fbbf24',x,0.68,10.5);
-box(2.2,0.1,1.1,'#ffffff',-15.5,0.5,8.1); cyl(0.08,0.08,0.45,'#9ca3af',-15.5,0.25,8.1,scene,6);
-const rug=new THREE.Mesh(new THREE.CylinderGeometry(3.2,3.2,0.03,24),M('#fde68a')); rug.position.set(-15.5,0.11,8.6); rug.receiveShadow=true; scene.add(rug);
-for(const [x,z,c] of [[-18.6,6,'#f472b6'],[-12.6,6.2,'#60a5fa']]){ const b=new THREE.Mesh(new THREE.SphereGeometry(0.6,12,8),M(c)); b.scale.set(1,0.6,1); b.position.set(x,0.38,z); b.castShadow=true; scene.add(b); }
-plant(-19.2,12.2,1.1);
-// 茶水间：吧台、咖啡机、冰箱、绿植、标牌
-box(6,1,1,'#ffffff',15.5,0.5,12.3); box(6.1,0.08,1.1,'#94a3b8',15.5,1.04,12.3);
-box(0.7,0.8,0.6,'#1f2937',14,1.48,12.3); box(0.4,0.12,0.2,'#ef4444',14,1.6,11.98); cyl(0.12,0.1,0.18,'#ffffff',14,1.17,11.85,scene,10);
-for(const x of [16.4,16.8,17.2]) cyl(0.09,0.08,0.18,pick(['#f87171','#38bdf8','#fde047']),x,1.17,12.2,scene,8);
-box(1.1,2.2,1,'#e2e8f0',19.2,1.1,11.8);
-for(const x of [13.8,15.5,17.2]){ cyl(0.35,0.35,0.08,'#ef4444',x,0.85,10.4,scene,14); cyl(0.05,0.05,0.8,'#9ca3af',x,0.4,10.4,scene,6); }
-plant(12,12.2,1.2); plant(19.3,3.2,1);
+plant(9.4,-12,1); plant(9.4,4.9,0.9);
+// 休息区：焦糖皮沙发、黑色大理石茶几、圆形宝蓝地毯（铁锈红圈）、奶油色布克雷单椅、白色玻璃吊灯组
+const rugOuter=new THREE.Mesh(new THREE.CylinderGeometry(3.5,3.5,0.03,40),M(C.rust)); rugOuter.position.set(-15.5,0.08,8.4); rugOuter.receiveShadow=true; scene.add(rugOuter);
+const rugIn=new THREE.Mesh(new THREE.CylinderGeometry(3.15,3.15,0.035,40),M(C.blue)); rugIn.position.set(-15.5,0.09,8.4); rugIn.receiveShadow=true; scene.add(rugIn);
+box(4.8,0.42,1.25,C.caramel,-15.5,0.33,10.6); box(4.8,0.85,0.35,C.caramel,-15.5,0.72,11.3); box(0.35,0.62,1.25,C.caramel,-18.05,0.55,10.6); box(0.35,0.62,1.25,C.caramel,-12.95,0.55,10.6);
+for(const x of [-16.9,-15.5,-14.1]) box(1.3,0.16,1.05,C.caramelHi,x,0.62,10.55);
+boxM(2.4,0.38,1.2,MAT.nero,-15.5,0.28,8.2);            // 黑色大理石茶几
+boxM(0.6,0.5,0.6,MAT.nero,-18.3,0.25,11.2);            // 大理石边几
+loungeChair(-18.6,8.2,Math.PI/2); loungeChair(-12.4,8.2,-Math.PI/2);
+const pendantM=glowMat('#fff0d8',0.5,2.6);
+for(const [dx,dz,y,r] of [[0,0,3.3,0.32],[0.6,0.3,3.6,0.26],[-0.55,0.35,3.5,0.28],[0.25,-0.5,3.75,0.22],[-0.3,-0.4,3.2,0.24]]){
+  const p=new THREE.Mesh(new THREE.SphereGeometry(r,14,10),pendantM); p.position.set(-15.5+dx,y,8.2+dz); scene.add(p);
+  cyl(0.012,0.012,4.6-y,'#222222',-15.5+dx,y+(4.6-y)/2,8.2+dz,scene,4); }
+plant(-19.2,12.3,1.1);
+// 图书角：浅蓝书架、蓝色圆桌、四把奶油色单椅
+boxM(0.5,2.3,5.2,M(C.paleBlue),-9.35,1.15,9.8);
+for(let i=0;i<4;i++) for(let j=0;j<9;j++) if(Math.random()<0.8) box(0.26,rand(0.32,0.44),0.16,pick(['#efe7d8','#b4532a','#2443a6','#3b2416','#d9b68a','#1d1d1d']),-9.08,0.4+i*0.55,7.6+j*0.5);
+for(let i=1;i<4;i++) box(0.5,0.04,5.2,'#93b2c6',-9.35,i*0.55+0.12,9.8);
+roundTable(-5.8,9.8,0.85,M(C.blue,{roughness:0.5}));
+for(const a of [0,Math.PI/2,Math.PI,Math.PI*1.5]) loungeChair(-5.8+Math.sin(a)*1.45,9.8+Math.cos(a)*1.45,a+Math.PI,C.boucle);
+// 禅意庭院：碎石、黑卵石、景石，奶油色屏风围合
+box(4.2,0.08,4.2,'#d8d3c8',0.8,0.06,10.6);
+{ const peb=new THREE.InstancedMesh(new THREE.SphereGeometry(0.1,6,4),M('#1c1c1c',{roughness:0.4}),70); const d=new THREE.Object3D();
+  for(let i=0;i<70;i++){ const a=rand(0,Math.PI*2), r=rand(0.9,1.8); d.position.set(0.8+Math.cos(a)*r,0.12,10.6+Math.sin(a)*r); d.scale.set(rand(0.8,1.6),0.6,rand(0.8,1.4)); d.updateMatrix(); peb.setMatrixAt(i,d.matrix); } peb.castShadow=true; scene.add(peb); }
+for(const [x,z,s] of [[0.5,10.3,0.7],[1.5,11.1,0.45],[0.1,11.4,0.3]]){ const r=new THREE.Mesh(new THREE.DodecahedronGeometry(s,0),M('#4a4744',{flatShading:true})); r.position.set(x,s*0.5,z); r.scale.y=0.7; r.castShadow=true; scene.add(r); }
+const screenM=M(C.cream,{transparent:true,opacity:0.85});
+boxM(4.4,1.7,0.08,screenM,0.8,0.85,8.4); boxM(0.08,1.7,4.2,screenM,-1.4,0.85,10.6); boxM(0.08,1.7,4.2,screenM,3.0,0.85,10.6);
+for(const x of [-1.4,3.0]) for(const z of [8.4,12.7]) box(0.08,1.8,0.08,C.walnutDark,x,0.9,z);
+// 专注舱：暖木墙 + 玻璃门
+for(const bx of [5.3,8.6]){
+  boxM(3.1,2.4,0.12,MAT.walnut,bx,1.2,8.0);                  // 木质后墙
+  boxM(0.12,2.4,4.6,MAT.walnut,bx-1.55,1.2,10.3);            // 侧墙
+  boxM(3.1,2.4,0.06,MAT.glass,bx,1.2,12.6,scene,false); box(3.12,0.06,0.08,C.metal,bx,2.4,12.6);
+  box(3.2,0.12,0.14,C.walnutDark,bx,2.45,8.0); box(0.14,0.12,4.7,C.walnutDark,bx-1.55,2.45,10.3);
+  box(1.6,0.06,0.7,C.walnut,bx,0.74,8.5); cyl(0.04,0.04,0.72,C.metal,bx,0.37,8.5,scene,6);
+  const st=new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.28,0.45,12),M(C.caramel)); st.position.set(bx,0.23,9.4); scene.add(st);
+  lightStrip(bx+1.2,1.3,8.1,2.0);
+}
+boxM(0.12,2.4,4.6,MAT.walnut,10.15,1.2,10.3);
+// 前台 · 茶水间：奶油色墙 + “31V AI 团队”标识、琥珀色玻璃前台、咖啡吧、焦糖皮椅
+boxM(8.4,2.8,0.3,M(C.cream),15.6,1.4,2.4);
+lightStrip(11.9,1.4,2.58,2.4); lightStrip(19.3,1.4,2.58,2.4);
 const signCanvas=document.createElement('canvas'); signCanvas.width=512; signCanvas.height=160;
-{ const c=signCanvas.getContext('2d'); c.fillStyle='#0c6a6e'; c.fillRect(0,0,512,160); c.strokeStyle='#fde68a'; c.lineWidth=8; c.strokeRect(10,10,492,140);
-  c.fillStyle='#fff'; c.font='bold 64px "Noto Sans CJK SC","PingFang SC",sans-serif'; c.textAlign='center'; c.textBaseline='middle'; c.fillText('31V 的 AI 团队',256,84); }
+{ const c=signCanvas.getContext('2d'); c.clearRect(0,0,512,160); c.fillStyle='#3b2416'; c.font='bold 70px "Noto Sans CJK SC","PingFang SC",sans-serif'; c.textAlign='center'; c.textBaseline='middle'; c.fillText('31V AI 团队',256,72);
+  c.fillStyle='#b88a4a'; c.fillRect(156,124,200,4); }
 const signTex=new THREE.CanvasTexture(signCanvas); signTex.colorSpace=THREE.SRGBColorSpace;
-box(0.12,2.4,0.12,'#6b7280',15.5,1.2,3.6);
-const sign=new THREE.Mesh(new THREE.PlaneGeometry(3.2,1),new THREE.MeshBasicMaterial({map:signTex,toneMapped:false}));
-sign.position.set(15.5,2.55,3.67); scene.add(sign);
-const signBack=box(3.3,1.08,0.08,'#374151',15.5,2.55,3.6);
+const sign=new THREE.Mesh(new THREE.PlaneGeometry(4,1.25),new THREE.MeshBasicMaterial({map:signTex,transparent:true,toneMapped:false}));
+sign.position.set(15.6,1.95,2.57); scene.add(sign);
+boxM(4.6,1.05,1.0,MAT.amberGlass,15.6,0.53,5.4);         // 琥珀色玻璃前台
+boxM(4.8,0.08,1.15,MAT.walnut,15.6,1.09,5.4);
+box(4.4,0.1,0.8,C.walnutDark,15.6,0.75,4.2);             // 台内工作面
+boxM(0.9,0.95,4.2,MAT.walnut,19.4,0.48,9.6);             // 咖啡吧柜
+boxM(0.95,0.06,4.25,MAT.nero,19.4,0.98,9.6);
+box(0.6,0.7,0.55,'#1d1d1d',19.4,1.36,8.4); box(0.12,0.1,0.35,C.rust,19.1,1.45,8.4); cyl(0.1,0.08,0.16,'#ffffff',19.0,1.09,8.4,scene,10);
+for(const z of [9.6,10.0,10.4]) cyl(0.08,0.07,0.16,pick(['#efe7d8',C.rust,C.blue]),19.4,1.09,z,scene,8);
+loungeChair(14,10.6,0,C.caramel); loungeChair(16.4,10.6,0,C.caramel);
+boxM(0.6,0.55,0.6,MAT.nero,15.2,0.28,10.8);
+plant(12,12.2,1.2); plant(19.3,12.4,1);
+const signBack=sign;
 
-// 夜灯
-const lamps=[]; const lampBulbMat=new THREE.MeshStandardMaterial({color:'#fff7d6',emissive:'#ffcf6b',emissiveIntensity:0});
-for(const [x,z] of [[-15.5,-8.5],[15.5,-8],[-15.5,8],[15.5,8],[0,-3]]){
-  const b=new THREE.Mesh(new THREE.SphereGeometry(0.28,10,8),lampBulbMat); b.position.set(x,3.6,z); scene.add(b);
-  const l=new THREE.PointLight('#ffd58a',0,16,1.2); l.position.set(x,3.4,z); scene.add(l); lamps.push(l);
+// 暖光灯（2700K），夜间点亮
+const lamps=[]; const lampBulbMat=glowMat('#ffd29a',0.3,2.2);
+for(const [x,z] of [[-15.5,-8.5],[15.5,-8],[-15.5,8.2],[15.5,7.5],[0,-6],[0,2],[-5,10],[7,10]]){
+  const l=new THREE.PointLight('#ffb46b',0,15,1.2); l.position.set(x,3.6,z); scene.add(l); lamps.push(l);
 }
 
 // ---------- 行情屏 ----------
@@ -240,7 +342,7 @@ drawBTC(); fetchBTC(); setInterval(fetchBTC,30000);
 // ---------- Bot ----------
 let DATA, STATUS;
 const bots=[]; const hitMeshes=[];
-const loungeSpots=[[-17.2,10.4,true],[-13.8,10.4,true],[-18.6,7.4],[-12.6,7.8],[-17.6,4.6],[-13.4,4.8],[-15.5,10.4,true],[-19,10.5],[-12.3,10.6],[-15.5,6.2]];
+const loungeSpots=[[-17,10.45,true],[-14,10.45,true],[-17.6,6.4],[-13.4,6.4],[-15.5,5.6],[-19.2,10],[-11.9,10.2],[-16.8,4.4],[-14.2,4.4],[-15.5,10.45,true]];
 const loungeTaken=new Set();
 const CORRIDOR_X=-10.2;
 
@@ -395,10 +497,10 @@ const btnDay=document.getElementById('btnDay'), btnDemo=document.getElementById(
 function applyNight(){
   document.body.classList.toggle('night',night); btnDay.textContent=night?'☀️ 白天':'🌙 夜间';
   scene.background.copy(night?NIGHT_BG:DAY_BG);
-  hemi.intensity=night?0.35:1.6; hemi.color.set(night?'#8aa0d6':'#ffffff');
-  sun.intensity=night?0.35:2.2; sun.color.set(night?'#9db4ff':'#fff6e8');
-  for(const l of lamps) l.intensity=night?22:0; lampBulbMat.emissiveIntensity=night?1.5:0;
-  winMat.color.set(night?'#1e2a4a':'#bfe3ff'); winMat.emissive.set(night?'#24345e':'#000000');
+  hemi.intensity=night?0.32:1.45; hemi.color.set(night?'#ffcf9e':'#fff3e2'); hemi.groundColor.set(night?'#3a2a1e':'#8f8070');
+  sun.intensity=night?0.12:2.1; sun.color.set(night?'#ffcf9e':'#ffe6c4');
+  for(const l of lamps) l.intensity=night?26:0;
+  for(const m of glowMats) m.emissiveIntensity=night?m.userData.night:m.userData.day;
 }
 btnDay.onclick=()=>{night=!night; applyNight();};
 btnDemo.onclick=()=>{demoOn=!demoOn; btnDemo.classList.toggle('on',demoOn); btnDemo.textContent=demoOn?'▶ 演示模式：开':'⏸ 演示模式：关';};
