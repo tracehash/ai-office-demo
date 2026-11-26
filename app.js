@@ -11,7 +11,6 @@ const FALLBACK = {
     idle:{label:'空闲',color:'#8a94a0'}, done:{label:'已完成',color:'#e3a316'},
     meeting:{label:'群聊中',color:'#0d9488'}, focus:{label:'专注',color:'#be185d'} },
   bots: [
-    ['grok','Grok Bot','调度·协调','#1f2937',['分派今日任务','协调团队进度','汇总各组产出']],
     ['aiorg','AI落地顾问','AI与组织','#0ea5a4',['梳理AI落地路径','设计试点流程']],
     ['marshall','Marshall·幕僚长','工作推进','#2563eb',['跟进本周待办','整理会议纪要']],
     ['oakley','Oakley · 首席助理','首席助理','#7c3aed',['安排日程提醒','整理文件目录']],
@@ -29,7 +28,9 @@ const FALLBACK = {
     ['humanity','人文学科教授','人文','#a16207',['讲解历史脉络','整理读书笔记']],
     ['fashion','时尚穿搭','形象','#f472b6',['搭配本周造型','推荐配饰']],
     ['advisor','学习Advicor','学习规划','#4f46e5',['制定学习计划','安排复习节奏']],
-  ].map(([id,name,role,color,tasks],i)=>({id,name,short:id==='oakley'?name:name.split('·')[0].trim(),role,color,tasks,dispatcher:i===0,seat:id==='oakley'?'directorOffice':undefined}))
+    ['kb','文章知识库管理员','知识库','#0f766e',['归档新文章','撰写中文摘要']],
+    ['finance','财经助手','财经资讯','#15803d',['整理财经要闻','跟踪市场动态']],
+  ].map(([id,name,role,color,tasks],i)=>({id,name,short:id==='oakley'?name:name.split('·')[0].trim(),role,color,tasks,dispatcher:id==='marshall',seat:id==='oakley'?'directorOffice':undefined}))
 };
 async function loadData(){
   try{ const r = await fetch('bots.json',{cache:'no-store'}); if(!r.ok) throw 0; const j = await r.json(); if(!j.bots?.length) throw 0; return j; }
@@ -651,7 +652,7 @@ function doDispatch(target){
   const g=bots.find(b=>b.def.dispatcher); if(!g||!target) return;
   const task=pick(target.def.tasks);
   setStatus(g,'working','分派：'+task+' → '+target.def.name.split('·')[0]);
-  dispatch(g,target,()=>{ if(!BUSY_SPECIAL(target)) setStatus(target,'working',task); });
+  dispatch(g,target,()=>{ if(demoOn && !BUSY_SPECIAL(target)) setStatus(target,'working',task); });
 }
 function directorTick(){
   if(!demoOn) return;
@@ -662,10 +663,15 @@ function directorTick(){
 
 // ---------- 侧边栏与卡片 ----------
 const listEl=document.getElementById('botList'); const liMap=new Map();
+function renderRules(live){
+  const ruleColor=k=>{ if(k==='directorOffice') return '#3b2416'; const st=[].concat(RULES[k].status)[0]; return STATUS[st]?.color||'#8a94a0'; };
+  const lg=k=>(live&&RULES[k].liveLegend)||RULES[k].legend, wh=k=>(live&&RULES[k].liveWhen)||RULES[k].when||'';
+  document.getElementById('rules').innerHTML='<b>空间规则</b>'+['directorOffice','meetingRoom','focusPod','lounge','desk'].filter(k=>RULES[k]).map(k=>`<span title="${wh(k)}"><i style="background:${ruleColor(k)}"></i>${lg(k)}</span>`).join('');
+}
 function buildList(){
   document.getElementById('legend').innerHTML=Object.values(STATUS).map(x=>`<span><i style="background:${x.color}"></i>${x.label}</span>`).join('');
   const ruleColor=k=>{ if(k==='directorOffice') return '#3b2416'; const st=[].concat(RULES[k].status)[0]; return STATUS[st]?.color||'#8a94a0'; };
-  document.getElementById('rules').innerHTML='<b>空间规则</b>'+['directorOffice','meetingRoom','focusPod','lounge','desk'].filter(k=>RULES[k]).map(k=>`<span title="${RULES[k].when||''}"><i style="background:${ruleColor(k)}"></i>${RULES[k].legend}</span>`).join('');
+  renderRules(false);
   for(const b of bots){ const li=document.createElement('li');
     li.innerHTML=`<span class="dot" style="background:${b.def.color}"></span><span class="nm">${b.def.name}<small>${b.def.role}</small></span><span class="badge"></span>`;
     li.onclick=()=>{ select(b); if(isMobile) document.getElementById('panel').classList.remove('open'); }; listEl.appendChild(li); liMap.set(b,li); }
@@ -812,8 +818,74 @@ function animate(){
   confParts.length=CONF_MAX; confParts.fill(null);
   setInterval(demoTick,2600); setInterval(directorTick,6500); setInterval(specialTick,3000);
   setTimeout(directorTick,1500);
+  startLive();
   renderer.setAnimationLoop(animate);
   setTimeout(()=>document.getElementById('loading').classList.add('gone'),200);
   window.__office={bots,meetings,setStatus,startMeeting,startFocus,camera,controls,THREE};
   window.__officeReady=true;
 })();
+
+// ---------- 实时状态（status.json）：可用且未过期时关闭演示，按真实状态摆放；否则保持演示 ----------
+const LIVE_Q=new URLSearchParams(location.search);
+const safeRel=(v,d)=>(v&&/^[\w.\-\/]+$/.test(v)&&!v.includes('..'))?v:d;
+const STATUS_URL=safeRel(LIVE_Q.get('status'),'status.json'), DAILY_URL=safeRel(LIVE_Q.get('daily'),'daily.json');
+let liveOn=false;
+function b64u(s){ s=s.replace(/-/g,'+').replace(/_/g,'/'); while(s.length%4) s+='='; return Uint8Array.from(atob(s),c=>c.charCodeAt(0)); }
+async function maybeDecrypt(j){
+  if(!j||j.enc!=='A256GCM') return j;
+  const k=new URLSearchParams(location.hash.slice(1)).get('k'); if(!k) return null;    // 没有密钥 → 访客只看到演示
+  const key=await crypto.subtle.importKey('raw',b64u(k),'AES-GCM',false,['decrypt']);
+  const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64u(j.iv)},key,b64u(j.ct));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+async function fetchJSON(u){ try{ const r=await fetch(u+(u.includes('?')?'&':'?')+'t='+Date.now(),{cache:'no-store'}); if(!r.ok) return null; return await maybeDecrypt(await r.json()); }catch(e){ return null; } }
+function hhmm(iso){ const d=new Date(iso); return d.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Shanghai'}); }
+function applyLive(j){
+  const byId=id=>bots.find(b=>b.def.id===id);
+  // 结束现有会议，按 status.json 的群聊重新开会
+  for(const mt of [...meetings]){ meetings.splice(meetings.indexOf(mt),1); for(const m of mt.members) m.meeting=null; }
+  const roomOf=new Map();
+  for(const r of (j.rooms||[])){ const mem=r.members.map(byId).filter(b=>b&&!b.office); if(mem.length<RULES.meetingRoom.minParticipants) continue;
+    const g={id:'live-'+r.name,name:r.name}; for(const m of mem) roomOf.set(m,{g,mem}); }
+  const started=new Set();
+  const order=[...j.bots].sort((a,b)=>(a.state==='focus')-(b.state==='focus'));   // 先释放专注舱，再安排专注
+  for(const s of order){ const b=byId(s.id); if(!b) continue; if(!STATUS[s.state]) continue;
+    const label=`${s.category} · 最近活跃：${s.active}`+(s.todayMsgs!=null?` · 今日 ${s.todayMsgs} 条`:'');
+    const room=roomOf.get(b);
+    if(room){ if(!started.has(room.g.id)){ started.add(room.g.id); const mt=startMeeting(room.g,'群聊进行中',room.mem); if(mt) mt.ends=Infinity; } b.task=room.g.name+' · 群聊进行中'; refreshList(b); continue; }
+    if(s.state==='meeting'){ if(b.status!=='working') setStatus(b,'working',label); b.deep=false; b.task='群聊中（在总监室线上参会） · '+label; refreshList(b); continue; }       // 总监室常驻 bot 参会时留在总监室
+    if(s.state==='focus'){ if(b.status!=='focus'){ setStatus(b,'working',label); b.deep=true; b.workSince=performance.now()-(RULES.focusPod.minSeconds+1)*1000; startFocus(b,label); } b.focusEnds=Infinity; b.task=label; continue; }
+    if(b.status!==s.state) setStatus(b,s.state,label);
+    if(s.state==='working') b.deep=false;
+    if(s.state!=='idle') b.task=label; else b.task=(b.office?'在总监室待命':'在休息区')+' · '+label;
+    refreshList(b);
+  }
+  const f=document.getElementById('footer'); if(f.firstChild&&f.firstChild.nodeType===3) f.firstChild.textContent=`实时状态 · 更新于 ${hhmm(j.generatedAt)}（北京时间）· 约每 ${j.pollMinutes||15} 分钟刷新`;
+}
+let userDemo=false;
+async function pollLive(){
+  if(userDemo) return;
+  const j=await fetchJSON(STATUS_URL);
+  const fresh=j && j.mode==='live' && Array.isArray(j.bots) && (STATUS_URL!=='status.json' || (Date.now()-Date.parse(j.generatedAt))/1000 < (j.ttlSec||2700));
+  if(!fresh){ if(liveOn){ liveOn=false; demoOn=true; btnDemo.classList.add('on'); btnDemo.textContent='▶ 演示模式：开'; renderRules(false); } return; }   // 过期/缺失 → 回到演示
+  if(!liveOn){ liveOn=true; demoOn=false; btnDemo.classList.remove('on'); btnDemo.textContent='● 实时状态'; renderRules(true); }
+  applyLive(j);
+  if(!dailyLoaded && (j.daily || DAILY_URL!=='daily.json')){ dailyLoaded=true; loadDaily(); }
+}
+async function loadDaily(){
+  const d=await fetchJSON(DAILY_URL); if(!d||!d.bots) return;
+  const btn=document.createElement('button'); btn.id='btnDaily'; btn.textContent='📋 日报 '+d.date.slice(5);
+  document.querySelector('#topbar .controls')?.prepend(btn);
+  const box=document.createElement('div'); box.id='daily'; box.className='hidden';
+  const nm=id=>(bots.find(b=>b.def.id===id)?.def.short)||id;
+  box.innerHTML=`<button class="x" aria-label="关闭">×</button><h3>团队日报 · ${d.date}</h3>
+    <p>${d.activeBots} 位 bot 今天有动作，共完成 ${d.totalDone} 项。</p>
+    <h4>战略方向推进（31V Strategic OS）</h4><ul>${Object.entries(d.pillarProgress).map(([k,v])=>`<li>${k}<b>${v} 项</b></li>`).join('')}</ul>
+    <h4>各 bot</h4><ul>${d.bots.filter(b=>b.turns>0).map(b=>`<li>${nm(b.id)}<span>${b.pillars.join('、')}</span><b>完成 ${b.done} · ${b.turns} 条</b></li>`).join('')}</ul>`;
+  document.body.appendChild(box);
+  btn.onclick=()=>box.classList.toggle('hidden'); box.querySelector('.x').onclick=()=>box.classList.add('hidden');
+}
+let dailyLoaded=false;
+function startLive(){
+  btnDemo.onclick=()=>{ if(liveOn||!userDemo&&!demoOn){ userDemo=true; liveOn=false; demoOn=true; btnDemo.classList.add('on'); btnDemo.textContent='▶ 演示模式：开'; renderRules(false); } else if(userDemo){ userDemo=false; pollLive(); } else { demoOn=!demoOn; btnDemo.classList.toggle('on',demoOn); btnDemo.textContent=demoOn?'▶ 演示模式：开':'⏸ 演示模式：关'; } };
+  pollLive(); setInterval(pollLive,60000); }
